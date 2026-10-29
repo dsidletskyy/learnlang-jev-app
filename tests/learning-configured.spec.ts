@@ -611,3 +611,73 @@ test.describe('touch learning controls', () => {
     await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
   });
 });
+
+test('repeated invalid submissions restore answer focus', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Greeting');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  const answer = page.getByLabel('Answer');
+  const submit = page.getByRole('button', { name: 'Submit answer' });
+  for (let i = 0; i < 2; i++) {
+    await submit.focus();
+    await submit.press('Enter');
+    await expect(page.locator('#answer-error')).toBeVisible();
+    await expect(answer).toBeFocused();
+  }
+});
+
+for (const outcome of ['success', 'failure'] as const) {
+  test(`evaluation ${outcome} while exit dialog is open preserves dialog focus and navigation`, async ({ page, browserName }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Add phrase' }).first().click();
+    const add = page.getByRole('dialog');
+    await add.getByLabel('Original phrase').fill('Hello');
+    await add.getByLabel('Translation').fill('Greeting');
+    await add.getByRole('button', { name: 'Save phrase' }).click();
+    await expect(add).toBeHidden();
+    await page.getByRole('button', { name: 'Start learning' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+    let release!: () => void;
+    let received!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const responseReceived = new Promise<void>(resolve => { received = resolve; });
+    await page.route('**/', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const response = await route.fetch();
+      received();
+      await gate;
+      await route.fulfill({ response });
+    });
+    await page.getByLabel('Answer').fill(outcome === 'success' ? 'Greetings' : 'provider failure');
+    await page.getByRole('button', { name: 'Submit answer' }).click();
+    await responseReceived;
+    const exit = page.getByRole('button', { name: 'Exit session' });
+    await exit.focus();
+    await exit.press('Enter');
+    const dialog = page.getByRole('dialog');
+    const cancel = dialog.getByRole('button', { name: 'Cancel' });
+    await expect(cancel).toBeFocused();
+    release();
+    if (outcome === 'success') await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+    else await expect(page.locator('#answer-error')).toContainText('Could not evaluate your answer');
+    await expect(cancel).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(exit).toBeFocused();
+    await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab');
+    if (outcome === 'success') {
+      await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('button', { name: 'Return to dictionary' })).toBeFocused();
+    } else {
+      await expect(page.getByLabel('Answer')).toBeFocused();
+      await expect(page.getByLabel('Answer')).toHaveValue('provider failure');
+    }
+  });
+}

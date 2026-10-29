@@ -93,7 +93,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     event.preventDefault();
     if (evaluationPending.current) return;
     const parsed = phraseSchema.safeParse(answer);
-    if (!parsed.success) { setAnswerError(parsed.error.issues[0].message); return; }
+    if (!parsed.success) { setAnswerError(parsed.error.issues[0].message); answerRef.current?.focus(); return; }
     const trimmed = parsed.data;
     setAnswer(trimmed); setAnswerError('');
     const entry = session![position];
