@@ -22,3 +22,7 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# Playwright output
+playwright-report/
+test-results/
