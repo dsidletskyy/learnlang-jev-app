@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages } from '../lib/dictionary-entry';
-import { addDictionaryEntry } from './dictionary-actions';
+import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
 import { evaluateMeaningMatch } from './meaning-match-actions';
 import ConnectionCheck from './connection-check';
@@ -13,6 +13,9 @@ type Fields = { original: string; language: string; translation: string };
 
 export default function Dictionary({ entries, jevConfigured }: { entries: Entry[]; jevConfigured: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const learningDialog = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [selectedLanguage, setSelectedLanguage] = useState('');
@@ -65,8 +68,18 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [fields, setFields] = useState<Fields>({ original: '', language: 'en', translation: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState('');
   const [pending, startTransition] = useTransition();
+
+  function openDialog(entry?: Entry) {
+    setEditingId(entry?.id ?? null);
+    setFields(entry ? { original: entry.original, language: entry.language, translation: entry.translation } : { original: '', language: 'en', translation: '' });
+    setErrors({});
+    setError('');
+    setConfirmation('');
+    dialog.current?.showModal();
+  }
 
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,14 +93,31 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     setError('');
     startTransition(async () => {
       try {
-        const result = await addDictionaryEntry(fields);
+        const result = editingId === null ? await addDictionaryEntry(fields) : await editDictionaryEntry(editingId, fields);
         if (!result.ok) { setError(result.error); return; }
         dialog.current?.close();
         setFields({ original: '', language: 'en', translation: '' });
-        setConfirmation('Phrase added.');
+        setConfirmation(editingId === null ? 'Phrase added.' : 'Phrase updated.');
         router.refresh();
       } catch {
         setError('Could not save phrase. Check the database and try again.');
+      }
+    });
+  }
+
+  function deleteEntry() {
+    if (!entryToDelete) return;
+    setDeleteError('');
+    startTransition(async () => {
+      try {
+        const result = await deleteDictionaryEntry(entryToDelete.id);
+        if (!result.ok) { setDeleteError(result.error); return; }
+        deleteDialog.current?.close();
+        setEntryToDelete(null);
+        setConfirmation(result.deleted ? 'Phrase deleted.' : '');
+        router.refresh();
+      } catch {
+        setDeleteError('Could not delete phrase. Check the database and try again.');
       }
     });
   }
@@ -113,7 +143,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   }
   return <main>
     <h1>Dictionary</h1>
-    <button onClick={() => { setConfirmation(''); dialog.current?.showModal(); }}>Add phrase</button>
+    {entries.length > 0 && <button onClick={() => openDialog()}>Add phrase</button>}
     <button disabled={!entries.length} onClick={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog.current?.showModal(); }}>Start learning</button>
     <dialog ref={learningDialog} aria-labelledby="learning-title">
       <h2 id="learning-title">Start learning</h2>
@@ -125,16 +155,24 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <button disabled={!jevConfigured || loading || !selectedLanguage} onClick={startSession}>{loading ? 'Loading…' : 'Start session'}</button>
     </dialog>
     {confirmation && <p role="status">{confirmation}</p>}
-    {entries.length === 0 ? <p>Welcome! Add your first phrase to your dictionary.</p> : <section aria-label="Dictionary entries">
+    {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><button onClick={() => openDialog()}>Add phrase</button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
+        <button type="button" aria-label="Edit phrase" title="Edit phrase" onClick={() => openDialog(entry)}><span aria-hidden="true">✎</span></button>
+        <button type="button" aria-label="Delete phrase" title="Delete phrase" onClick={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><span aria-hidden="true">🗑</span></button>
       </article>)}
     </section>}
     <ConnectionCheck />
-    <dialog ref={dialog} aria-labelledby="add-title" onCancel={event => { if (pending) event.preventDefault(); }}>
-      <h2 id="add-title">Add phrase</h2>
+    <dialog ref={deleteDialog} aria-labelledby="delete-title" onCancel={event => { if (pending) event.preventDefault(); }}>
+      <h2 id="delete-title">Delete phrase?</h2>
+      <p className="phrase">{entryToDelete?.original}</p>
+      {deleteError && <p role="alert">{deleteError}</p>}
+      <div className="actions"><button type="button" disabled={pending} onClick={() => deleteDialog.current?.close()}>Cancel</button><button type="button" disabled={pending} onClick={deleteEntry}>Delete</button></div>
+    </dialog>
+    <dialog ref={dialog} aria-labelledby="dialog-title" onCancel={event => { if (pending) event.preventDefault(); }}>
+      <h2 id="dialog-title">{editingId === null ? 'Add phrase' : 'Edit phrase'}</h2>
       <form onSubmit={save} noValidate>
         <label htmlFor="original">Original phrase</label>
         <textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
