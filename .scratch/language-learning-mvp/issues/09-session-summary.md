@@ -4,9 +4,13 @@
 
 **Blocked by:** 08: Start an exact-match learning session
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Show each translation, answer, saved original and whole-number meaning-match score in session order, plus the rounded arithmetic mean of displayed scores.
-- [ ] Offer return to dictionary and starting another session through language selection.
-- [ ] Keep sessions and summaries in browser memory only; leaving or refreshing discards them, with no persistent history.
-- [ ] Browser tests verify summary content, average, navigation and discarded progress.
+- [x] Show each translation, answer, saved original and whole-number meaning-match score in session order, plus the rounded arithmetic mean of displayed scores.
+- [x] Offer return to dictionary and starting another session through language selection.
+- [x] Keep sessions and summaries in browser memory only; leaving or refreshing discards them, with no persistent history.
+- [x] Browser tests verify summary content, average, navigation and discarded progress.
+
+## Comments
+
+Evidence: `app/dictionary.tsx` and `tests/learning-configured.spec.ts` cover summary content, navigation, and in-memory session lifetime.

@@ -4,8 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Pin and document an active LTS Node.js major; use pnpm with a checked-in lockfile and verify the version during setup.
-- [ ] Start Next.js on the host with local-only binding; demonstrate a client-to-server operation without a separate backend.
-- [ ] Provide working lint and typecheck commands and a sample environment file without credentials; exclude real environment files.
+- [x] Pin and document an active LTS Node.js major; use pnpm with a checked-in lockfile and verify the version during setup.
+- [x] Start Next.js on the host with local-only binding; demonstrate a client-to-server operation without a separate backend.
+- [x] Provide working lint and typecheck commands and a sample environment file without credentials; exclude real environment files.
+
+## Comments
+
+Evidence: `package.json`, `scripts/check-node.mjs`, `README.md`, and `tests/bootstrap.spec.ts` cover the local setup and client/server bootstrap.
