@@ -131,7 +131,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   }
   return <main>
     <h1>Dictionary</h1>
-    <button onClick={() => openDialog()}>Add phrase</button>
+    {entries.length > 0 && <button onClick={() => openDialog()}>Add phrase</button>}
     <button disabled={!entries.length} onClick={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog.current?.showModal(); }}>Start learning</button>
     <dialog ref={learningDialog} aria-labelledby="learning-title">
       <h2 id="learning-title">Start learning</h2>
@@ -143,7 +143,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <button disabled={!jevConfigured || loading || !selectedLanguage} onClick={startSession}>{loading ? 'Loading…' : 'Start session'}</button>
     </dialog>
     {confirmation && <p role="status">{confirmation}</p>}
-    {entries.length === 0 ? <p>Welcome! Add your first phrase to your dictionary.</p> : <section aria-label="Dictionary entries">
+    {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><button onClick={() => openDialog()}>Add phrase</button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
