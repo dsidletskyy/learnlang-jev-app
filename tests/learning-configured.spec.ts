@@ -158,3 +158,106 @@ test('summary navigation starts a fresh session or returns to dictionary; refres
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
 });
+
+test('cancelling exit preserves answer and last feedback; confirmed exit discards session', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Exit session' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByLabel('Answer')).toHaveValue('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await page.getByRole('button', { name: 'Exit session' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('100%');
+  await page.getByRole('button', { name: 'Exit session' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Exit session' }).click();
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await expect(page.getByLabel('Answer')).toBeEmpty();
+});
+
+test('refresh warns until summary and discards unfinished progress', async ({ page, browserName }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  // Playwright Firefox does not expose beforeunload dialogs on reload.
+  if (browserName === 'firefox') {
+    expect(await page.evaluate(() => window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(false);
+    await page.reload();
+  } else {
+    const warning = page.waitForEvent('dialog');
+    const reload = page.reload();
+    const dialog = await warning;
+    expect(dialog.type()).toBe('beforeunload');
+    await dialog.accept();
+    await reload;
+  }
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await expect(page.getByLabel('Answer')).toBeEmpty();
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  let warned = false;
+  page.on('dialog', async dialog => { warned = true; await dialog.accept(); });
+  await page.reload();
+  expect(warned).toBe(false);
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+});
+
+test('exit during evaluation is immediate and late result cannot affect a new session', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  let release!: () => void;
+  let received!: () => void;
+  const responseReceived = new Promise<void>(resolve => { received = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const response = await route.fetch();
+    received();
+    await gate;
+    await route.fulfill({ response });
+  });
+  await page.getByLabel('Answer').fill('Greetings');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await responseReceived;
+  await expect(page.getByRole('button', { name: 'Evaluating…' })).toBeVisible();
+  await page.getByRole('button', { name: 'Exit session' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Exit session' }).click();
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  release();
+  await page.unrouteAll({ behavior: 'wait' });
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await expect(page.getByLabel('Answer')).toBeEmpty();
+  await expect(page.getByText('Estimated meaning-match score:')).toHaveCount(0);
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('100%');
+});
