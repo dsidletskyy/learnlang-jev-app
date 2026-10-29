@@ -64,3 +64,19 @@ test('loading failure preserves selected language and allows retry', async ({ pa
   await dialog.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByText('German — 1 of 1')).toBeVisible();
 });
+
+test('non-exact answer receives estimated meaning-match score', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Private translation');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await page.getByLabel('Answer').fill('Greetings');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+  await expect(page.getByText('Greetings', { exact: true })).toBeVisible();
+});
