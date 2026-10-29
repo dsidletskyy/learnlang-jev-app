@@ -98,6 +98,12 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [confirmation, setConfirmation] = useState('');
   const [pending, startTransition] = useTransition();
 
+  useEffect(() => {
+    if (confirmation !== 'Phrase added.' && confirmation !== 'Phrase updated.') return;
+    const timer = window.setTimeout(() => setConfirmation(''), 5000);
+    return () => window.clearTimeout(timer);
+  }, [confirmation]);
+
   function openDialog(entry?: Entry) {
     setEditingId(entry?.id ?? null);
     setFields(entry ? { original: entry.original, language: entry.language, translation: entry.translation } : { original: '', language: 'en', translation: '' });
@@ -199,7 +205,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <Button type="button" disabled={loading} onClick={() => learningDialog.current?.close()}>Cancel</Button>
       <Button disabled={!jevConfigured || loading || !selectedLanguage} onClick={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
     </dialog>
-    {confirmation && <p role="status">{confirmation}</p>}
+    <p role="status">{confirmation}</p>
     {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><Button onClick={() => openDialog()}>Add phrase</Button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase">{entry.original}</p>
