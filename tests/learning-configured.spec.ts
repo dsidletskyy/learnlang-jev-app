@@ -80,3 +80,81 @@ test('non-exact answer receives estimated meaning-match score', async ({ page })
   await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
   await expect(page.getByText('Greetings', { exact: true })).toBeVisible();
 });
+
+test('completed session reviews answers in order and rounds the average', async ({ page }) => {
+  await page.goto('/');
+  const entries = [
+    { original: 'Hello', translation: 'First\ntranslation', answer: 'Hello', score: '100%' },
+    { original: 'Goodbye', translation: 'Second translation', answer: 'Farewell', score: '50%' },
+    { original: 'Thanks', translation: 'Third translation', answer: 'Thank you', score: '50%' },
+  ];
+  for (const entry of entries) {
+    await page.getByRole('button', { name: 'Add phrase' }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('Original phrase').fill(entry.original);
+    await dialog.getByLabel('Translation').fill(entry.translation);
+    await dialog.getByRole('button', { name: 'Save phrase' }).click();
+    await expect(dialog).toBeHidden();
+  }
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  const ordered = [];
+  for (let i = 0; i < entries.length; i++) {
+    await expect(page.getByText(`English — ${i + 1} of 3`)).toBeVisible();
+    const translation = await page.getByLabel('Translation').inputValue();
+    const entry = entries.find(item => item.translation === translation)!;
+    expect(entry).toBeTruthy();
+    ordered.push(entry);
+    await page.getByLabel('Answer').fill(entry.answer);
+    await page.getByRole('button', { name: 'Submit answer' }).click();
+    await expect(page.getByText('Estimated meaning-match score:')).toContainText(entry.score);
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+  }
+  await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
+  await expect(page.getByText('Average meaning-match score:')).toContainText('67%');
+  const reviews = page.locator('main article');
+  await expect(reviews).toHaveCount(3);
+  for (let i = 0; i < ordered.length; i++) {
+    for (const text of [ordered[i].translation, ordered[i].answer, ordered[i].original, ordered[i].score]) {
+      await expect(reviews.nth(i)).toContainText(text);
+    }
+  }
+});
+
+test('summary navigation starts a fresh session or returns to dictionary; refresh discards progress', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await page.getByLabel('Answer').fill('unfinished');
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await expect(page.getByLabel('Answer')).toBeEmpty();
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Start another session' }).click();
+  await expect(page.getByRole('dialog').getByLabel('Original language')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await expect(page.getByLabel('Answer')).toBeEmpty();
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Return to dictionary' }).click();
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await expect(page.getByLabel('Answer')).toBeEmpty();
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+});

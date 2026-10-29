@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages } from '../lib/dictionary-entry';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
@@ -24,11 +24,20 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [answer, setAnswer] = useState('');
   const [answerError, setAnswerError] = useState('');
   const [feedback, setFeedback] = useState<number | null>(null);
+  const [reviews, setReviews] = useState<{ entry: Entry; answer: string; score: number }[]>([]);
+  const openLearningAfterSummary = useRef(false);
   const [evaluating, setEvaluating] = useState(false);
   const evaluationPending = useRef(false);
   const [learningError, setLearningError] = useState('');
   const [loading, setLoading] = useState(false);
   const availableLanguages = languages.map(language => ({ ...language, count: entries.filter(entry => entry.language === language.code).length })).filter(language => language.count > 0);
+
+  useEffect(() => {
+    if (!session && openLearningAfterSummary.current) {
+      learningDialog.current?.showModal();
+      openLearningAfterSummary.current = false;
+    }
+  }, [session]);
 
   async function startSession() {
     setLoading(true);
@@ -42,7 +51,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      setPosition(0); setAnswer(''); setAnswerError(''); setFeedback(null);
+      setPosition(0); setAnswer(''); setAnswerError(''); setFeedback(null); setReviews([]);
       setSession(shuffled); learningDialog.current?.close();
     } catch { setLearningError('Could not load entries. Check the database and try again.'); }
     finally { setLoading(false); }
@@ -123,7 +132,20 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   }
 
   if (session) {
-    if (position >= session.length) return <main><h1>Session complete</h1><button onClick={() => setSession(null)}>Return to dictionary</button></main>;
+    if (position >= session.length) return <main>
+      <h1>Session complete</h1>
+      <p>Average meaning-match score: <strong>{Math.round(reviews.reduce((sum, review) => sum + review.score, 0) / reviews.length)}%</strong></p>
+      {reviews.map(({ entry, answer, score }) => <article key={entry.id}>
+        <p>Translation</p><p className="phrase">{entry.translation}</p>
+        <p>Answer</p><p className="phrase">{answer}</p>
+        <p>Original phrase</p><p className="phrase">{entry.original}</p>
+        <p>Estimated meaning-match score: <strong>{score}%</strong></p>
+      </article>)}
+      <div className="actions">
+        <button onClick={() => { setReviews([]); setSession(null); }}>Return to dictionary</button>
+        <button onClick={() => { setReviews([]); setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); openLearningAfterSummary.current = true; setSession(null); }}>Start another session</button>
+      </div>
+    </main>;
     const entry = session[position];
     return <main>
       <h1>Practice</h1>
@@ -131,7 +153,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <article>
         <label htmlFor="prompt">Translation</label>
         <textarea id="prompt" readOnly value={entry.translation} />
-        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><button onClick={() => { setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</button></> :
+        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><button onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
             <textarea id="answer" value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
