@@ -17,6 +17,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
   const [deleteError, setDeleteError] = useState('');
   const learningDialog = useRef<HTMLDialogElement>(null);
+  const exitDialog = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [session, setSession] = useState<Entry[] | null>(null);
@@ -28,6 +29,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const openLearningAfterSummary = useRef(false);
   const [evaluating, setEvaluating] = useState(false);
   const evaluationPending = useRef(false);
+  const sessionGeneration = useRef(0);
   const [learningError, setLearningError] = useState('');
   const [loading, setLoading] = useState(false);
   const availableLanguages = languages.map(language => ({ ...language, count: entries.filter(entry => entry.language === language.code).length })).filter(language => language.count > 0);
@@ -38,6 +40,16 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       openLearningAfterSummary.current = false;
     }
   }, [session]);
+
+  useEffect(() => {
+    if (!session || position >= session.length) return;
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [session, position]);
 
   async function startSession() {
     setLoading(true);
@@ -66,13 +78,18 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     setAnswer(trimmed); setAnswerError('');
     const entry = session![position];
     if (trimmed.toLowerCase() === entry.original.trim().toLowerCase()) { setFeedback(100); return; }
+    const generation = sessionGeneration.current;
     evaluationPending.current = true; setEvaluating(true);
     try {
       const result = await evaluateMeaningMatch({ original: entry.original, answer: trimmed, language: entry.language });
+      if (generation !== sessionGeneration.current) return;
       if (result.ok) setFeedback(result.score);
       else setAnswerError(result.error);
-    } catch { setAnswerError('Could not evaluate your answer. Try again.'); }
-    finally { evaluationPending.current = false; setEvaluating(false); }
+    } catch {
+      if (generation === sessionGeneration.current) setAnswerError('Could not evaluate your answer. Try again.');
+    } finally {
+      if (generation === sessionGeneration.current) { evaluationPending.current = false; setEvaluating(false); }
+    }
   }
   const [fields, setFields] = useState<Fields>({ original: '', language: 'en', translation: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
@@ -149,6 +166,12 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     const entry = session[position];
     return <main>
       <h1>Practice</h1>
+      <button type="button" onClick={() => exitDialog.current?.showModal()}>Exit session</button>
+      <dialog ref={exitDialog} aria-labelledby="exit-title">
+        <h2 id="exit-title">Exit session?</h2>
+        <p>Unfinished progress will be discarded.</p>
+        <div className="actions"><button type="button" onClick={() => exitDialog.current?.close()}>Cancel</button><button type="button" onClick={() => { exitDialog.current?.close(); sessionGeneration.current++; evaluationPending.current = false; setEvaluating(false); setSession(null); setReviews([]); }}>Exit session</button></div>
+      </dialog>
       <p>{languages.find(language => language.code === selectedLanguage)?.name} — {position + 1} of {session.length}</p>
       <article>
         <label htmlFor="prompt">Translation</label>
