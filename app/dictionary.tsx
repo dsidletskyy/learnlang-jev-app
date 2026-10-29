@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages } from '../lib/dictionary-entry';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
+import { evaluateMeaningMatch } from './meaning-match-actions';
 import ConnectionCheck from './connection-check';
 
 type Entry = { id: number; original: string; language: string; translation: string };
@@ -22,7 +23,9 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [position, setPosition] = useState(0);
   const [answer, setAnswer] = useState('');
   const [answerError, setAnswerError] = useState('');
-  const [feedback, setFeedback] = useState(false);
+  const [feedback, setFeedback] = useState<number | null>(null);
+  const [evaluating, setEvaluating] = useState(false);
+  const evaluationPending = useRef(false);
   const [learningError, setLearningError] = useState('');
   const [loading, setLoading] = useState(false);
   const availableLanguages = languages.map(language => ({ ...language, count: entries.filter(entry => entry.language === language.code).length })).filter(language => language.count > 0);
@@ -39,19 +42,28 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      setPosition(0); setAnswer(''); setAnswerError(''); setFeedback(false);
+      setPosition(0); setAnswer(''); setAnswerError(''); setFeedback(null);
       setSession(shuffled); learningDialog.current?.close();
     } catch { setLearningError('Could not load entries. Check the database and try again.'); }
     finally { setLoading(false); }
   }
 
-  function submitAnswer(event: React.FormEvent) {
+  async function submitAnswer(event: React.FormEvent) {
     event.preventDefault();
+    if (evaluationPending.current) return;
     const trimmed = answer.trim();
     if (!trimmed) { setAnswerError('Enter a value.'); return; }
     if (Array.from(trimmed).length > 2000) { setAnswerError('Use at most 2,000 Unicode code points.'); return; }
-    if (trimmed.toLowerCase() !== session![position].original.trim().toLowerCase()) { setAnswerError('Only exact answers can be scored yet.'); return; }
-    setAnswer(trimmed); setAnswerError(''); setFeedback(true);
+    setAnswer(trimmed); setAnswerError('');
+    const entry = session![position];
+    if (trimmed.toLowerCase() === entry.original.trim().toLowerCase()) { setFeedback(100); return; }
+    evaluationPending.current = true; setEvaluating(true);
+    try {
+      const result = await evaluateMeaningMatch({ original: entry.original, answer: trimmed, language: entry.language });
+      if (result.ok) setFeedback(result.score);
+      else setAnswerError(result.error);
+    } catch { setAnswerError('Could not evaluate your answer. Try again.'); }
+    finally { evaluationPending.current = false; setEvaluating(false); }
   }
   const [fields, setFields] = useState<Fields>({ original: '', language: 'en', translation: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
@@ -119,12 +131,12 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <article>
         <label htmlFor="prompt">Translation</label>
         <textarea id="prompt" readOnly value={entry.translation} />
-        {feedback ? <><p>Meaning-match score: <strong>100%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><button onClick={() => { setPosition(position + 1); setAnswer(''); setFeedback(false); }}>Next</button></> :
+        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><button onClick={() => { setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
             <textarea id="answer" value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
             {answerError && <p id="answer-error" role="alert">{answerError}</p>}
-            <button>Submit answer</button>
+            <button disabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</button>
           </form>}
       </article>
     </main>;
