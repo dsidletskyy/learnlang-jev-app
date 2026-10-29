@@ -44,9 +44,9 @@ export default function Dictionary({ entries }: { entries: Entry[] }) {
 
   return <main>
     <h1>Dictionary</h1>
-    <button onClick={() => { setConfirmation(''); dialog.current?.showModal(); }}>Add phrase</button>
+    {entries.length > 0 && <button onClick={() => { setConfirmation(''); dialog.current?.showModal(); }}>Add phrase</button>}
     {confirmation && <p role="status">{confirmation}</p>}
-    {entries.length === 0 ? <p>Welcome! Add your first phrase to your dictionary.</p> : <section aria-label="Dictionary entries">
+    {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><button onClick={() => { setConfirmation(''); dialog.current?.showModal(); }}>Add phrase</button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
