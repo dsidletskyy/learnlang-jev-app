@@ -9,13 +9,13 @@ export const languages = [
   { code: 'uk', name: 'Ukrainian' },
 ] as const;
 
-const phrase = z.string().trim().min(1, 'Enter a value.').refine(
+export const phraseSchema = z.string().trim().min(1, 'Enter a value.').refine(
   value => Array.from(value).length <= 2000,
   'Use at most 2,000 Unicode code points.',
 );
 
 export const dictionaryEntrySchema = z.object({
-  original: phrase,
+  original: phraseSchema,
   language: z.string().refine(value => languages.some(language => language.code === value), 'Select a supported language.'),
-  translation: phrase,
+  translation: phraseSchema,
 });

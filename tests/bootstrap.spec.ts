@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
-test('client reaches a server operation', async ({ page }) => {
+test('home shows dictionary without development scaffold', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Check server connection' }).click();
-  await expect(page.getByRole('status')).toHaveText('Server connection confirmed.');
+  await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  await expect(page.getByText('Local app foundation')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Check server connection' })).toHaveCount(0);
 });

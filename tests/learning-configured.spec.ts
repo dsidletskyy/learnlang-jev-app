@@ -458,3 +458,33 @@ test('narrow keyboard practice displays the full multiline prompt and permits sa
   await expect(page.getByText('Session complete')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('language selection cannot be dismissed while session entries load', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Greeting');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  const selection = page.getByRole('dialog');
+  let release!: () => void;
+  let received!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const responseReceived = new Promise<void>(resolve => { received = resolve; });
+  await page.route('**/', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const response = await route.fetch();
+    received();
+    await gate;
+    await route.fulfill({ response });
+  });
+  await selection.getByRole('button', { name: 'Start session' }).click();
+  await responseReceived;
+  await expect(selection.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(selection).toBeVisible();
+  release();
+  await expect(page.getByText('English — 1 of 1')).toBeVisible();
+});
