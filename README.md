@@ -21,7 +21,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://127.0.0.1:3000 and add a phrase to your dictionary. Reload to see it retained. Next.js runs on the host, bound to loopback; PostgreSQL's published port is also loopback-only. App startup never runs migrations. After updates, run `pnpm db:migrate` again. Dictionary use will not require a Jev key.
+Open http://127.0.0.1:3000 and add a phrase to your dictionary. Reload to see it retained. Next.js runs on the host, bound to loopback; PostgreSQL's published port is also loopback-only. App startup never runs migrations. After updates, run `pnpm db:migrate` again. Dictionary use does not require a Jev key. To start learning, set `TYPESAFE_API_KEY` in `.env` and restart the app.
 
 Stop PostgreSQL with `docker compose stop`; stopping or recreating its container preserves the personal volume. **Removing the personal volume deletes dictionary data.** Do not use `docker compose down -v` unless intentionally deleting it. Persistent storage is not a backup.
 
