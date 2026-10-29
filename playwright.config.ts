@@ -7,5 +7,6 @@ export default defineConfig({
     command: 'pnpm exec next dev --hostname 127.0.0.1 --port 3100',
     url: 'http://127.0.0.1:3100',
     reuseExistingServer: false,
+    env: { DATABASE_URL: 'postgresql://unavailable:unavailable@127.0.0.1:1/unavailable' },
   },
 });

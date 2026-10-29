@@ -1,0 +1,19 @@
+name: language-learning-test
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: language_test
+      POSTGRES_DB: language_test
+      POSTGRES_PASSWORD: language_test_password
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U language_test -d language_test']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  test_data:
