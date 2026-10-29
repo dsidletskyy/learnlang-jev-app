@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages } from '../lib/dictionary-entry';
-import { addDictionaryEntry } from './dictionary-actions';
+import { addDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import ConnectionCheck from './connection-check';
 
 type Entry = { id: number; original: string; language: string; translation: string };
@@ -11,6 +11,9 @@ type Fields = { original: string; language: string; translation: string };
 
 export default function Dictionary({ entries }: { entries: Entry[] }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
+  const [deleteError, setDeleteError] = useState('');
   const router = useRouter();
   const [fields, setFields] = useState<Fields>({ original: '', language: 'en', translation: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
@@ -42,6 +45,23 @@ export default function Dictionary({ entries }: { entries: Entry[] }) {
     });
   }
 
+  function deleteEntry() {
+    if (!entryToDelete) return;
+    setDeleteError('');
+    startTransition(async () => {
+      try {
+        const result = await deleteDictionaryEntry(entryToDelete.id);
+        if (!result.ok) { setDeleteError(result.error); return; }
+        deleteDialog.current?.close();
+        setEntryToDelete(null);
+        setConfirmation(result.deleted ? 'Phrase deleted.' : '');
+        router.refresh();
+      } catch {
+        setDeleteError('Could not delete phrase. Check the database and try again.');
+      }
+    });
+  }
+
   return <main>
     <h1>Dictionary</h1>
     <button onClick={() => { setConfirmation(''); dialog.current?.showModal(); }}>Add phrase</button>
@@ -51,9 +71,16 @@ export default function Dictionary({ entries }: { entries: Entry[] }) {
         <p className="phrase">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
+        <button type="button" aria-label="Delete phrase" title="Delete phrase" onClick={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><span aria-hidden="true">🗑</span></button>
       </article>)}
     </section>}
     <ConnectionCheck />
+    <dialog ref={deleteDialog} aria-labelledby="delete-title" onCancel={event => { if (pending) event.preventDefault(); }}>
+      <h2 id="delete-title">Delete phrase?</h2>
+      <p className="phrase">{entryToDelete?.original}</p>
+      {deleteError && <p role="alert">{deleteError}</p>}
+      <div className="actions"><button type="button" disabled={pending} onClick={() => deleteDialog.current?.close()}>Cancel</button><button type="button" disabled={pending} onClick={deleteEntry}>Delete</button></div>
+    </dialog>
     <dialog ref={dialog} aria-labelledby="add-title" onCancel={event => { if (pending) event.preventDefault(); }}>
       <h2 id="add-title">Add phrase</h2>
       <form onSubmit={save} noValidate>
