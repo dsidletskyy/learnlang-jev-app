@@ -18,6 +18,11 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [deleteError, setDeleteError] = useState('');
   const learningDialog = useRef<HTMLDialogElement>(null);
   const exitDialog = useRef<HTMLDialogElement>(null);
+  const exitButtonRef = useRef<HTMLButtonElement>(null);
+  const answerRef = useRef<HTMLTextAreaElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const summaryBackRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [session, setSession] = useState<Entry[] | null>(null);
@@ -40,6 +45,21 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       openLearningAfterSummary.current = false;
     }
   }, [session]);
+
+  useEffect(() => {
+    if (!session || exitDialog.current?.open) return;
+    if (position >= session.length) summaryBackRef.current?.focus();
+    else if (feedback !== null) {
+      if (document.activeElement !== exitButtonRef.current) nextRef.current?.focus();
+    }
+    else answerRef.current?.focus();
+  }, [session, position, feedback]);
+
+  useEffect(() => {
+    if (answerError && !evaluating && (document.activeElement === document.body || document.activeElement === submitRef.current)) {
+      answerRef.current?.focus();
+    }
+  }, [answerError, evaluating]);
 
   useEffect(() => {
     if (!session || position >= session.length) return;
@@ -165,14 +185,14 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         <p>Estimated meaning-match score: <strong>{score}%</strong></p>
       </article>)}
       <div className="actions">
-        <Button onClick={() => { setReviews([]); setSession(null); }}>Return to dictionary</Button>
+        <Button ref={summaryBackRef} onClick={() => { setReviews([]); setSession(null); }}>Return to dictionary</Button>
         <Button onClick={() => { setReviews([]); setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); openLearningAfterSummary.current = true; setSession(null); }}>Start another session</Button>
       </div>
     </main>;
     const entry = session[position];
     return <main>
       <h1>Practice</h1>
-      <Button type="button" onClick={() => exitDialog.current?.showModal()}>Exit session</Button>
+      <Button ref={exitButtonRef} type="button" onClick={() => exitDialog.current?.showModal()}>Exit session</Button>
       <dialog ref={exitDialog} aria-labelledby="exit-title">
         <h2 id="exit-title">Exit session?</h2>
         <p>Unfinished progress will be discarded.</p>
@@ -182,12 +202,12 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <article>
         <p id="prompt-label">Translation</p>
         <div role="textbox" aria-readonly="true" aria-labelledby="prompt-label" className="phrase">{entry.translation}</div>
-        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><Button onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
+        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><Button ref={nextRef} onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
-            <textarea id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
+            <textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
             {answerError && <p id="answer-error" role="alert">{answerError}</p>}
-            <Button disabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button>
+            <Button ref={submitRef} disabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button>
           </form>}
       </article>
     </main>;

@@ -22,3 +22,5 @@ dialog::backdrop { background: #1d304a80; }
 form label, form textarea, form select { display: block; width: 100%; margin-top: .6rem; }
 textarea { min-height: 6rem; resize: vertical; }
 .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+
+#learning-language { min-height: 44px; }

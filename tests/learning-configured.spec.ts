@@ -318,8 +318,11 @@ test('evaluation keeps submitted answer unchanged and prevents duplicate submiss
   await expect(answer).toHaveAttribute('readonly', '');
   await answer.press('Control+Enter');
   await answer.evaluate(element => (element as HTMLTextAreaElement).form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  const exit = page.getByRole('button', { name: 'Exit session' });
+  await exit.focus();
   release();
   await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+  await expect(exit).toBeFocused();
   expect(submissions).toBe(1);
 });
 
@@ -507,6 +510,11 @@ test('keyboard navigates selection, evaluation error retry and summary actions',
   await add.getByLabel('Translation').fill('Greeting');
   await add.getByRole('button', { name: 'Save phrase' }).click();
   await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Second greeting');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
 
   const start = page.getByRole('button', { name: 'Start learning' });
   await start.focus();
@@ -514,14 +522,19 @@ test('keyboard navigates selection, evaluation error retry and summary actions',
   const selection = page.getByRole('dialog');
   await expect(selection.getByLabel('Original language')).toBeFocused();
   await page.keyboard.press(tab);
-  await expect(selection.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  const cancel = selection.getByRole('button', { name: 'Cancel' });
+  await expect(cancel).toBeFocused();
+  expect(await cancel.evaluate(element => {
+    const style = getComputedStyle(element);
+    return element.matches(':focus-visible') && ((style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2) || style.boxShadow !== 'none');
+  })).toBe(true);
   await page.keyboard.press(tab);
   await expect(selection.getByRole('button', { name: 'Start session' })).toBeFocused();
   await page.keyboard.press('Enter');
   const answer = page.getByLabel('Answer');
   await expect(answer).toBeVisible();
-  await answer.focus();
-  await answer.fill('provider failure');
+  await expect(answer).toBeFocused();
+  await page.keyboard.type('provider failure');
   await page.keyboard.press(tab);
   await expect(page.getByRole('button', { name: 'Submit answer' })).toBeFocused();
   await page.keyboard.press('Enter');
@@ -529,25 +542,31 @@ test('keyboard navigates selection, evaluation error retry and summary actions',
   await expect(page.locator('#answer-error')).toContainText('Could not evaluate your answer');
   await expect(answer).toHaveAttribute('aria-invalid', 'true');
   await expect(answer).toHaveAttribute('aria-describedby', 'answer-error');
-  await page.getByRole('button', { name: 'Submit answer' }).focus();
-  await page.keyboard.press(reverseTab);
   await expect(answer).toBeFocused();
   await expect(answer).toHaveValue('provider failure');
-  await answer.fill('Hello');
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type('Hello');
   await page.keyboard.press('Control+Enter');
   await expect(page.getByText('Estimated meaning-match score:')).toContainText('100%');
   const next = page.getByRole('button', { name: 'Next', exact: true });
-  await next.focus();
+  await expect(next).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(answer).toBeFocused();
+  await page.keyboard.type('Hello');
+  await page.keyboard.press('Control+Enter');
+  await expect(next).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
   const back = page.getByRole('button', { name: 'Return to dictionary' });
-  await back.focus();
+  await expect(back).toBeFocused();
   await page.keyboard.press(tab);
   await expect(page.getByRole('button', { name: 'Start another session' })).toBeFocused();
   await page.keyboard.press(reverseTab);
   await expect(back).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Dictionary' })).toBeVisible();
+  await page.keyboard.press(tab);
+  await expect(page.getByRole('button', { name: 'Add phrase' }).first()).toBeFocused();
 });
 
 test.describe('touch learning controls', () => {
@@ -570,7 +589,15 @@ test.describe('touch learning controls', () => {
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
     await tapButton('Start learning');
+    const languageBox = await page.getByRole('dialog').getByLabel('Original language').boundingBox();
+    expect(languageBox!.width).toBeGreaterThanOrEqual(44);
+    expect(languageBox!.height).toBeGreaterThanOrEqual(44);
     await tapButton('Start session');
+    const answerBox = await page.getByLabel('Answer').boundingBox();
+    expect(answerBox!.width).toBeGreaterThanOrEqual(44);
+    expect(answerBox!.height).toBeGreaterThanOrEqual(44);
+    await tapButton('Exit session');
+    await tapButton('Cancel');
     await page.getByLabel('Answer').fill('provider failure');
     await tapButton('Submit answer');
     await expect(page.locator('#answer-error')).toContainText('Could not evaluate your answer');
