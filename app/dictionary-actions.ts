@@ -34,3 +34,16 @@ export async function editDictionaryEntry(id: unknown, input: unknown) {
   revalidatePath('/');
   return { ok: true as const };
 }
+
+export async function deleteDictionaryEntry(input: unknown) {
+  const parsed = z.number().int().positive().max(2147483647).safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: 'Could not delete phrase. Try again.' };
+  try {
+    const db = await getDatabase();
+    const deleted = await db.delete(dictionaryEntries).where(eq(dictionaryEntries.id, parsed.data)).returning({ id: dictionaryEntries.id });
+    revalidatePath('/');
+    return { ok: true as const, deleted: deleted.length > 0 };
+  } catch {
+    return { ok: false as const, error: 'Could not delete phrase. Check the database and try again.' };
+  }
+}
