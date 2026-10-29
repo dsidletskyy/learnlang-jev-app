@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function Home() {
   const entries = await loadEntries();
   if (!entries) return <main><h1>Dictionary</h1><p role="alert">Database is not ready. Start PostgreSQL, check DATABASE_URL, run pnpm db:migrate, and refresh.</p></main>;
-  return <Dictionary entries={entries} />;
+  return <Dictionary entries={entries} jevConfigured={!!process.env.TYPESAFE_API_KEY?.trim()} />;
 }
 
 async function loadEntries() {
