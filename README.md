@@ -29,14 +29,15 @@ If Docker is unavailable, start Docker and retry. If the page reports the databa
 
 ## Checks
 
-Browser tests require Chromium: `pnpm exec playwright install chromium`. On Linux, see `pnpm exec playwright install --help` for system dependencies. The tests start a loopback-only server on port 3100; free that port if needed. Browser tests force an unavailable database and never connect to the personal database.
+Browser tests require Chromium, Firefox, and WebKit: `pnpm exec playwright install chromium firefox webkit`. On Linux, see `pnpm exec playwright install --help` for system dependencies. The tests start a loopback-only server on port 3100; free that port if needed. Browser tests use a dedicated database; a separate recovery test forces an unavailable database.
 
 The database integration test uses a separate container, volume, credentials and port. Start it and set its explicit test-only URL:
 
 ```sh
 docker compose -f compose.test.yaml up -d --wait
 export TEST_DATABASE_URL=postgresql://language_test:language_test_password@127.0.0.1:55432/language_test
+export JEV_TEST_URL=http://127.0.0.1:3101
 pnpm check
 ```
 
-`pnpm check` runs `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm test:database`. The database test validates its explicit target and connected database identity before migrating or writing, then recreates only the test container to verify persistence. No live Jev key is needed. Stop the test database with `docker compose -f compose.test.yaml stop`; remove only its test volume with `docker compose -f compose.test.yaml down -v`. Never substitute the personal Compose file in test lifecycle commands.
+`pnpm check` runs `pnpm lint`, `pnpm typecheck`, `pnpm test:isolation`, `pnpm test`, and `pnpm test:database`. Playwright uses one worker and resets the test database before its run, after verifying the test container, volume, connection and database identity. Do not run multiple test suites concurrently. The loopback Jev substitute rejects scoring requests because scoring is not implemented yet. The test app blocks outbound Node TCP connections and does not need a live key; future scoring integration must use the substitute and preserve and test this fail-closed protection. Free ports 3100, 3101 and 55432 if occupied. The database test validates its explicit target and connected database identity before migrating or writing, then recreates only the test container to verify persistence. No live Jev key is needed. Stop the test database with `docker compose -f compose.test.yaml stop`; remove only its test volume with `docker compose -f compose.test.yaml down -v`. Never substitute the personal Compose file in test lifecycle commands.

@@ -12,10 +12,11 @@
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "playwright test",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:database",
+    "test": "playwright test && playwright test --config=playwright.unavailable.config.ts",
+    "check": "pnpm lint && pnpm typecheck && pnpm test:isolation && pnpm test && pnpm test:database",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
-    "test:database": "node tests/integration/database.mjs"
+    "test:database": "node tests/integration/database.mjs",
+    "test:isolation": "node --test tests/isolation/*.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
