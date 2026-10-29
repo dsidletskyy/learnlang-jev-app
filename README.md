@@ -1,6 +1,6 @@
 # Language Learning — local database foundation
 
-This local Next.js foundation connects to PostgreSQL; dictionary and practice features are not implemented yet. Keep the app and database local. Persistent storage is not a backup.
+This local Next.js app stores dictionary entries in PostgreSQL; practice features are not implemented yet. Keep the app and database local. Persistent storage is not a backup.
 
 ## Setup
 
@@ -21,7 +21,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://127.0.0.1:3000 and select **Check server connection**. The server confirmation appears and no database error is displayed. Next.js runs on the host, bound to loopback; PostgreSQL's published port is also loopback-only. App startup never runs migrations. After updates, run `pnpm db:migrate` again. Dictionary use will not require a Jev key.
+Open http://127.0.0.1:3000 and add a phrase to your dictionary. Reload to see it retained. Next.js runs on the host, bound to loopback; PostgreSQL's published port is also loopback-only. App startup never runs migrations. After updates, run `pnpm db:migrate` again. Dictionary use will not require a Jev key.
 
 Stop PostgreSQL with `docker compose stop`; stopping or recreating its container preserves the personal volume. **Removing the personal volume deletes dictionary data.** Do not use `docker compose down -v` unless intentionally deleting it. Persistent storage is not a backup.
 
@@ -40,4 +40,4 @@ export JEV_TEST_URL=http://127.0.0.1:3101
 pnpm check
 ```
 
-`pnpm check` runs `pnpm lint`, `pnpm typecheck`, `pnpm test:isolation`, `pnpm test`, and `pnpm test:database`. Playwright uses one worker and resets the test database before its run, after verifying the test container, volume, connection and database identity. Do not run multiple test suites concurrently. The loopback Jev substitute rejects scoring requests because scoring is not implemented yet. The test app blocks outbound Node TCP connections and does not need a live key; future scoring integration must use the substitute and preserve and test this fail-closed protection. Free ports 3100, 3101 and 55432 if occupied. The database test validates its explicit target and connected database identity before migrating or writing, then recreates only the test container to verify persistence. No live Jev key is needed. Stop the test database with `docker compose -f compose.test.yaml stop`; remove only its test volume with `docker compose -f compose.test.yaml down -v`. Never substitute the personal Compose file in test lifecycle commands.
+`pnpm check` runs `pnpm lint`, `pnpm typecheck`, `pnpm test:unit`, `pnpm test:isolation`, `pnpm test`, and `pnpm test:database`. Playwright uses one worker and resets the test database before its run, after verifying the test container, volume, connection and database identity. Do not run multiple test suites concurrently. The loopback Jev substitute rejects scoring requests because scoring is not implemented yet. The test app blocks outbound Node TCP connections and does not need a live key; future scoring integration must use the substitute and preserve and test this fail-closed protection. Free ports 3100, 3101 and 55432 if occupied. The database test validates its explicit target and connected database identity before migrating or writing, then recreates only the test container to verify persistence. No live Jev key is needed. Stop the test database with `docker compose -f compose.test.yaml stop`; remove only its test volume with `docker compose -f compose.test.yaml down -v`. Never substitute the personal Compose file in test lifecycle commands.

@@ -22,7 +22,7 @@ try {
     throw new Error('Connected database is not the dedicated test target');
   }
   execFileSync('pnpm', ['db:migrate'], { stdio: 'inherit', env: { ...process.env, DATABASE_URL: testUrl } });
-  await client.query('truncate table database_ready');
+  await client.query('truncate table database_ready, dictionary_entries restart identity');
 } finally {
   await client.end();
 }
