@@ -1,0 +1,20 @@
+# Next.js in Docker for production
+
+## Conclusion
+
+Docker is an officially supported, sound way to deploy Next.js in production, but it does not automatically provide production security, availability, or operations. Next.js documents full framework feature support for both Node.js server and Docker deployments ([deployment documentation](https://nextjs.org/docs/app/getting-started/deploying)).
+
+For this local-only MVP, running PostgreSQL in Docker and Next.js directly is a simple development option; containerizing both is also reasonable for reproducible setup or testing a production-like image. Production containers become attractive when control and portability justify operating the infrastructure; managed hosting can reduce that work. These are recommendations, not universal performance or cost claims.
+
+## Findings
+
+- **Production image:** multi-stage builds and a minimal runtime reduce unnecessary contents. Next.js `output: 'standalone'` traces required files and generates a minimal server. It does not automatically copy `public` or `.next/static`; copy them or serve them separately. Verify dynamically loaded files are present. Sources: [Next.js output tracing](https://nextjs.org/docs/app/api-reference/config/next-config-js/output), [Docker build best practices](https://docs.docker.com/build/building/best-practices/).
+- **Security:** Next.js recommends a reverse proxy for self-hosting, including handling malformed requests, slow connections, payload limits, and rate limiting. Use a non-root runtime user and maintained images; configure TLS, restricted network exposure, and secrets separately. Docker isolation alone does not make an application secure. Sources: [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting), [Docker build best practices](https://docs.docker.com/build/building/best-practices/), [Docker build secrets](https://docs.docker.com/build/building/secrets/).
+- **Configuration:** `NEXT_PUBLIC_` variables are embedded in the browser bundle at build time; server-side runtime configuration can vary when read dynamically. Build arguments and build environment variables are inappropriate for build secrets; use secret mounts when a build needs secrets and a suitable runtime secret mechanism for runtime credentials. Sources: [Next.js environment variables](https://nextjs.org/docs/app/guides/environment-variables), [Docker build secrets](https://docs.docker.com/build/building/secrets/).
+- **Multiple instances:** Next.js describes cache coordination, tag invalidation, deployment consistency, and Server Function encryption keys as considerations for multi-server self-hosting. Default per-instance caches can diverge; ephemeral storage can disappear when instances are replaced. Check documentation for the actual Next.js version and rendering mode. Source: [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting).
+- **Managed hosting comparison:** Vercel provides integrated Next.js hosting and caching infrastructure; with self-hosted containers the operator must arrange relevant infrastructure and operations. Compare actual cost, limits, portability, availability needs, and operational burden rather than assuming either option is universally better. Sources: [Vercel Next.js](https://vercel.com/docs/frameworks/full-stack/nextjs), [Vercel caching](https://vercel.com/docs/caching), [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting).
+- **Deployment practice:** use a production build and server rather than the development server; plan monitoring, backups, recovery, and deployments. PostgreSQL data must live in persistent storage and have backups. Source: [Next.js deployment](https://nextjs.org/docs/app/getting-started/deploying); operational recommendations follow from the self-hosting responsibilities above.
+
+## Limits
+
+No project-specific load test, security audit, hosting quote, or live deployment was performed. Framework cache behavior depends on the version and features used. The decision to deploy publicly is separate from the MVP's local-only, no-login security model.
