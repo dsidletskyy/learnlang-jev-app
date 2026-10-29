@@ -60,6 +60,7 @@ test('loading failure preserves selected language and allows retry', async ({ pa
   await dialog.getByRole('button', { name: 'Start session' }).click();
   await expect(dialog.getByRole('alert')).toContainText('Could not load entries');
   await expect(dialog.getByLabel('Original language')).toHaveValue('de');
+  await expect(dialog.getByLabel('Original language')).toBeEnabled();
   await page.unrouteAll();
   await dialog.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByText('German — 1 of 1')).toBeVisible();
@@ -459,14 +460,17 @@ test('narrow keyboard practice displays the full multiline prompt and permits sa
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('language selection cannot be dismissed while session entries load', async ({ page }) => {
+test('language selection stays fixed while session entries load', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Add phrase' }).first().click();
-  const add = page.getByRole('dialog');
-  await add.getByLabel('Original phrase').fill('Hello');
-  await add.getByLabel('Translation').fill('Greeting');
-  await add.getByRole('button', { name: 'Save phrase' }).click();
-  await expect(add).toBeHidden();
+  for (const [original, language, translation] of [['Hello', 'en', 'Greeting'], ['Hallo', 'de', 'German greeting']]) {
+    await page.getByRole('button', { name: 'Add phrase' }).first().click();
+    const add = page.getByRole('dialog');
+    await add.getByLabel('Original phrase').fill(original);
+    await add.getByLabel('Original language').selectOption(language);
+    await add.getByLabel('Translation').fill(translation);
+    await add.getByRole('button', { name: 'Save phrase' }).click();
+    await expect(add).toBeHidden();
+  }
   await page.getByRole('button', { name: 'Start learning' }).click();
   const selection = page.getByRole('dialog');
   let release!: () => void;
@@ -482,9 +486,12 @@ test('language selection cannot be dismissed while session entries load', async 
   });
   await selection.getByRole('button', { name: 'Start session' }).click();
   await responseReceived;
+  await expect(selection.getByLabel('Original language')).toBeDisabled();
+  await expect(selection.getByLabel('Original language')).toHaveValue('en');
   await expect(selection.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(selection).toBeVisible();
   release();
   await expect(page.getByText('English — 1 of 1')).toBeVisible();
+  await expect(page.getByLabel('Translation')).toHaveText('Greeting');
 });

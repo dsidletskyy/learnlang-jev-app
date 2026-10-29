@@ -193,7 +193,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     <dialog ref={learningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
       <h2 id="learning-title">Start learning</h2>
       <label htmlFor="learning-language">Original language</label>
-      <select id="learning-language" value={selectedLanguage} onChange={event => setSelectedLanguage(event.target.value)}>{availableLanguages.map(language => <option key={language.code} value={language.code}>{language.name} ({language.count})</option>)}</select>
+      <select id="learning-language" disabled={loading} value={selectedLanguage} onChange={event => setSelectedLanguage(event.target.value)}>{availableLanguages.map(language => <option key={language.code} value={language.code}>{language.name} ({language.count})</option>)}</select>
       {learningError && <p role="alert">{learningError}</p>}
       {!jevConfigured && <p role="alert">Set TYPESAFE_API_KEY in your local environment and restart the app to start learning.</p>}
       <Button type="button" disabled={loading} onClick={() => learningDialog.current?.close()}>Cancel</Button>
