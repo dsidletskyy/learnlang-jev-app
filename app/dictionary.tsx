@@ -86,7 +86,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       if (result.ok) setFeedback(result.score);
       else setAnswerError(result.error);
     } catch {
-      if (generation === sessionGeneration.current) setAnswerError('Could not evaluate your answer. Try again.');
+      if (generation === sessionGeneration.current) setAnswerError('Could not evaluate your answer. Try again; another attempt may incur a provider charge.');
     } finally {
       if (generation === sessionGeneration.current) { evaluationPending.current = false; setEvaluating(false); }
     }
@@ -179,7 +179,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><button onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
-            <textarea id="answer" value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
+            <textarea id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
             {answerError && <p id="answer-error" role="alert">{answerError}</p>}
             <button disabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</button>
           </form>}

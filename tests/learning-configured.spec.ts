@@ -261,3 +261,88 @@ test('exit during evaluation is immediate and late result cannot affect a new se
   await page.getByRole('button', { name: 'Submit answer' }).click();
   await expect(page.getByText('Estimated meaning-match score:')).toContainText('100%');
 });
+
+test('failed evaluation preserves editable answer and requires manual retry', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  const answer = page.getByLabel('Answer');
+  await answer.fill('provider failure');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.locator('#answer-error')).toContainText('Could not evaluate your answer');
+  await expect(page.locator('#answer-error')).toContainText('charge');
+  await expect(answer).toHaveValue('provider failure');
+  await expect(page.getByText('Estimated meaning-match score:')).toHaveCount(0);
+  await answer.fill('Greetings');
+  await expect(page.getByText('Estimated meaning-match score:')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+});
+
+test('evaluation keeps submitted answer unchanged and prevents duplicate submissions', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  let release!: () => void;
+  let received!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const responseReceived = new Promise<void>(resolve => { received = resolve; });
+  let submissions = 0;
+  await page.route('**/', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    submissions++;
+    const response = await route.fetch();
+    received();
+    await gate;
+    await route.fulfill({ response });
+  });
+  const answer = page.getByLabel('Answer');
+  await answer.fill('Greetings');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await responseReceived;
+  await expect(page.getByRole('button', { name: 'Evaluating…' })).toBeDisabled();
+  await expect(answer).toHaveValue('Greetings');
+  await expect(answer).toHaveAttribute('readonly', '');
+  await answer.press('Control+Enter');
+  await answer.evaluate(element => (element as HTMLTextAreaElement).form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  release();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+  expect(submissions).toBe(1);
+});
+
+test('invalid scores and credentials produce safe actionable errors without consuming attempt', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  const answer = page.getByLabel('Answer');
+  for (const [value, message] of [['invalid score', 'Could not evaluate your answer'], ['unparseable score', 'Could not evaluate your answer'], ['credential failure', 'Check your Jev API key']]) {
+    await answer.fill(value);
+    await page.getByRole('button', { name: 'Submit answer' }).click();
+    await expect(page.locator('#answer-error')).toContainText(message);
+    await expect(page.locator('#answer-error')).toContainText('charge');
+    await expect(page.locator('#answer-error')).not.toContainText('provider detail');
+    await expect(answer).toHaveValue(value);
+    await expect(page.getByText('Estimated meaning-match score:')).toHaveCount(0);
+  }
+  await answer.fill('Greetings');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+});

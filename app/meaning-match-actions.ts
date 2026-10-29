@@ -14,7 +14,7 @@ export async function evaluateMeaningMatch(input: unknown) {
     const score = await scoreMeaningMatch(parsed.data, { apiKey, baseURL: process.env.JEV_TEST_URL || 'https://api.typesafe.ai' });
     return { ok: true as const, score };
   } catch (error) {
-    if (error instanceof AuthenticationError || error instanceof PermissionDeniedError) return { ok: false as const, error: 'Check your Jev API key and try again.' };
-    return { ok: false as const, error: 'Could not evaluate your answer. Try again.' };
+    if (error instanceof AuthenticationError || error instanceof PermissionDeniedError) return { ok: false as const, error: 'Check your Jev API key and try again; another attempt may incur a provider charge.' };
+    return { ok: false as const, error: 'Could not evaluate your answer. Try again; another attempt may incur a provider charge.' };
   }
 }

@@ -39,3 +39,12 @@ test('meaning-match does not retry provider failures', async () => {
   await assert.rejects(scoreMeaningMatch({ original: 'A', answer: 'B', language: 'en' }, { apiKey: 'test', fetch }));
   assert.equal(attempts, 1);
 });
+
+test('meaning-match times out while provider response body stalls', async () => {
+  const fetch = async () => new Response(new ReadableStream({ start() {} }), { headers: { 'content-type': 'application/json' } });
+  const outcome = await Promise.race([
+    scoreMeaningMatch({ original: 'A', answer: 'B', language: 'en' }, { apiKey: 'test', fetch }).then(() => 'success', () => 'failure'),
+    new Promise(resolve => setTimeout(() => resolve('still waiting'), 31000)),
+  ]);
+  assert.equal(outcome, 'failure');
+});
