@@ -117,5 +117,52 @@ test('editing validates fields and preserves input for recovery from a failed sa
   await page.unrouteAll();
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.locator('article').filter({ hasText: 'Recovered phrase' })).toBeVisible();
+  await expect(page.locator('article').filter({ hasText: 'Recovered phrase' }).first()).toBeVisible();
+});
+
+test('deleted entry cannot be recreated by an open edit dialog', async ({ page, context }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Original phrase').fill('Deleted elsewhere');
+  await dialog.getByLabel('Translation').fill('Old translation');
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog).toBeHidden();
+  await page.locator('article').filter({ hasText: 'Deleted elsewhere' }).getByRole('button', { name: 'Edit phrase' }).click();
+  await dialog.getByLabel('Original phrase').fill('Unsaved correction');
+  const other = await context.newPage();
+  await other.goto('/');
+  await other.locator('article').filter({ hasText: 'Deleted elsewhere' }).getByRole('button', { name: 'Delete phrase' }).click();
+  await other.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(other.getByRole('dialog')).toBeHidden();
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog.getByRole('alert')).toContainText('no longer exists');
+  await expect(dialog.getByLabel('Original phrase')).toHaveValue('Unsaved correction');
+  await expect(dialog.getByLabel('Translation')).toHaveValue('Old translation');
+  await other.reload();
+  await expect(other.getByText('Unsaved correction')).toHaveCount(0);
+  await expect(other.getByText('Deleted elsewhere')).toHaveCount(0);
+});
+
+test('last successful concurrent edit wins', async ({ page, context }, testInfo) => {
+  const phrase = `Concurrent phrase ${testInfo.project.name}`;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Original phrase').fill(phrase);
+  await dialog.getByLabel('Translation').fill('Original translation');
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog).toBeHidden();
+  const other = await context.newPage();
+  await other.goto('/');
+  await page.locator('article').filter({ hasText: phrase }).getByRole('button', { name: 'Edit phrase' }).click();
+  await other.locator('article').filter({ hasText: phrase }).getByRole('button', { name: 'Edit phrase' }).click();
+  await other.getByRole('dialog').getByLabel('Translation').fill('First save');
+  await other.getByRole('dialog').getByRole('button', { name: 'Save phrase' }).click();
+  await expect(other.getByRole('dialog')).toBeHidden();
+  await dialog.getByLabel('Translation').fill('Last save');
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog).toBeHidden();
+  await page.reload();
+  await expect(page.locator('article').filter({ hasText: phrase })).toContainText('Last save');
 });
