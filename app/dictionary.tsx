@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages } from '../lib/dictionary-entry';
-import { addDictionaryEntry } from './dictionary-actions';
+import { addDictionaryEntry, editDictionaryEntry } from './dictionary-actions';
 import ConnectionCheck from './connection-check';
 
 type Entry = { id: number; original: string; language: string; translation: string };
@@ -15,8 +15,18 @@ export default function Dictionary({ entries }: { entries: Entry[] }) {
   const [fields, setFields] = useState<Fields>({ original: '', language: 'en', translation: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState('');
   const [pending, startTransition] = useTransition();
+
+  function openDialog(entry?: Entry) {
+    setEditingId(entry?.id ?? null);
+    setFields(entry ? { original: entry.original, language: entry.language, translation: entry.translation } : { original: '', language: 'en', translation: '' });
+    setErrors({});
+    setError('');
+    setConfirmation('');
+    dialog.current?.showModal();
+  }
 
   function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,11 +40,11 @@ export default function Dictionary({ entries }: { entries: Entry[] }) {
     setError('');
     startTransition(async () => {
       try {
-        const result = await addDictionaryEntry(fields);
+        const result = editingId === null ? await addDictionaryEntry(fields) : await editDictionaryEntry(editingId, fields);
         if (!result.ok) { setError(result.error); return; }
         dialog.current?.close();
         setFields({ original: '', language: 'en', translation: '' });
-        setConfirmation('Phrase added.');
+        setConfirmation(editingId === null ? 'Phrase added.' : 'Phrase updated.');
         router.refresh();
       } catch {
         setError('Could not save phrase. Check the database and try again.');
@@ -44,18 +54,19 @@ export default function Dictionary({ entries }: { entries: Entry[] }) {
 
   return <main>
     <h1>Dictionary</h1>
-    <button onClick={() => { setConfirmation(''); dialog.current?.showModal(); }}>Add phrase</button>
+    <button onClick={() => openDialog()}>Add phrase</button>
     {confirmation && <p role="status">{confirmation}</p>}
     {entries.length === 0 ? <p>Welcome! Add your first phrase to your dictionary.</p> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
+        <button type="button" aria-label="Edit phrase" title="Edit phrase" onClick={() => openDialog(entry)}>✎</button>
       </article>)}
     </section>}
     <ConnectionCheck />
-    <dialog ref={dialog} aria-labelledby="add-title" onCancel={event => { if (pending) event.preventDefault(); }}>
-      <h2 id="add-title">Add phrase</h2>
+    <dialog ref={dialog} aria-labelledby="dialog-title" onCancel={event => { if (pending) event.preventDefault(); }}>
+      <h2 id="dialog-title">{editingId === null ? 'Add phrase' : 'Edit phrase'}</h2>
       <form onSubmit={save} noValidate>
         <label htmlFor="original">Original phrase</label>
         <textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
