@@ -21,7 +21,7 @@ test('selects languages and practices each matching entry once with exact answer
   const seen = new Set<string>();
   for (let i = 1; i <= 2; i++) {
     await expect(page.getByText(`English — ${i} of 2`)).toBeVisible();
-    const prompt = await page.getByLabel('Translation').inputValue();
+    const prompt = await page.getByLabel('Translation').innerText();
     expect(['Привіт', 'Бувай']).toContain(prompt);
     expect(seen.has(prompt)).toBe(false);
     seen.add(prompt);
@@ -101,7 +101,7 @@ test('completed session reviews answers in order and rounds the average', async 
   const ordered = [];
   for (let i = 0; i < entries.length; i++) {
     await expect(page.getByText(`English — ${i + 1} of 3`)).toBeVisible();
-    const translation = await page.getByLabel('Translation').inputValue();
+    const translation = await page.getByLabel('Translation').innerText();
     const entry = entries.find(item => item.translation === translation)!;
     expect(entry).toBeTruthy();
     ordered.push(entry);
@@ -373,7 +373,7 @@ test('sessions retain snapshots when another tab edits and deletes entries', asy
   await other.getByRole('button', { name: 'Start learning' }).click();
   await other.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
   await expect(other.getByText('English — 1 of 1')).toBeVisible();
-  await expect(other.getByLabel('Translation')).toHaveValue('Greeting changed');
+  await expect(other.getByLabel('Translation')).toHaveText('Greeting changed');
   await other.getByLabel('Answer').fill('Hello changed');
   await other.getByRole('button', { name: 'Submit answer' }).click();
   await expect(other.getByText('Estimated meaning-match score:')).toContainText('100%');
@@ -381,7 +381,7 @@ test('sessions retain snapshots when another tab edits and deletes entries', asy
   const seen = new Set<string>();
   for (let i = 0; i < 2; i++) {
     await expect(page.getByText(`English — ${i + 1} of 2`)).toBeVisible();
-    const translation = await page.getByLabel('Translation').inputValue();
+    const translation = await page.getByLabel('Translation').innerText();
     expect(['Greeting', 'Farewell']).toContain(translation);
     expect(seen.has(translation)).toBe(false);
     seen.add(translation);
@@ -427,5 +427,34 @@ test('stale language selection does not start an empty session after another tab
   await selection.getByLabel('Original language').selectOption('de');
   await selection.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByText('German — 1 of 1')).toBeVisible();
-  await expect(page.getByLabel('Translation')).toHaveValue('German greeting');
+  await expect(page.getByLabel('Translation')).toHaveText('German greeting');
+});
+
+test('narrow keyboard practice displays the full multiline prompt and permits safe exit', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  const translation = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} ${'longword'.repeat(8)}`).join('\n');
+  await add.getByLabel('Translation').fill(translation);
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  const prompt = page.getByLabel('Translation');
+  await expect(page.getByText('English — 1 of 1')).toBeVisible();
+  expect(await prompt.evaluate(element => element.scrollHeight <= element.clientHeight)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByLabel('Answer').fill('Hello');
+  await page.getByLabel('Answer').press('Control+Enter');
+  await expect(page.getByText('100%')).toBeVisible();
+  const exit = page.getByRole('button', { name: 'Exit session' });
+  await exit.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(exit).toBeFocused();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByText('Session complete')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

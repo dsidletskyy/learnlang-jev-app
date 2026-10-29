@@ -3,7 +3,7 @@
 body { margin: 0; }
 main { max-width: 760px; padding: 2rem 1rem; margin: auto; }
 button, textarea, select { font: inherit; }
-button { padding: .7rem 1rem; cursor: pointer; }
+button { min-width: 44px; min-height: 44px; padding: .7rem 1rem; cursor: pointer; }
 button:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid #3473a9; outline-offset: 2px; }
 article { background: white; border: 1px solid #d5e0ea; border-radius: .5rem; padding: 1rem; margin: 1rem 0; overflow-wrap: anywhere; }
 .phrase { white-space: pre-wrap; }
@@ -11,4 +11,4 @@ dialog { width: min(32rem, calc(100% - 2rem)); border: 1px solid #aabccc; border
 dialog::backdrop { background: #1d304a80; }
 form label, form textarea, form select { display: block; width: 100%; margin-top: .6rem; }
 textarea { min-height: 6rem; resize: vertical; }
-.actions { display: flex; gap: .5rem; margin-top: 1rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }

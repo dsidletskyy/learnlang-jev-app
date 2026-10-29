@@ -174,8 +174,8 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       </dialog>
       <p>{languages.find(language => language.code === selectedLanguage)?.name} — {position + 1} of {session.length}</p>
       <article>
-        <label htmlFor="prompt">Translation</label>
-        <textarea id="prompt" readOnly value={entry.translation} />
+        <p id="prompt-label">Translation</p>
+        <div role="textbox" aria-readonly="true" aria-labelledby="prompt-label" className="phrase">{entry.translation}</div>
         {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><button onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
