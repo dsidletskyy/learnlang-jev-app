@@ -9,6 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Label } from 'react-aria-components';
 import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Toaster } from '../components/ui/sonner';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
 import { evaluateMeaningMatch } from './meaning-match-actions';
@@ -224,8 +225,9 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   return <main>
     <h1>Dictionary</h1>
     {entries.length > 0 && <Button onPress={() => openDialog()}>Add phrase</Button>}
-    <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); }}>Start learning</Button>
-    <dialog ref={setLearningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
+    <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); if (!jevConfigured) toast.error('Learning provider is not configured.', { id: 'learning-setup-warning', toasterId: 'learning-setup', duration: Infinity, closeButton: true }); }}>Start learning</Button>
+    <dialog ref={setLearningDialog} aria-labelledby="learning-title" onClose={() => toast.dismiss('learning-setup-warning')} onCancel={event => { if (loading) event.preventDefault(); }}>
+      <Toaster id="learning-setup" />
       <h2 id="learning-title">Start learning</h2>
       <Select selectedKey={selectedLanguage || null} onSelectionChange={key => setSelectedLanguage(String(key))} isDisabled={loading}>
         <Label>Original language</Label>

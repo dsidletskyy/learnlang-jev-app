@@ -12,6 +12,19 @@ test('missing Jev key blocks learning with configuration guidance', async ({ pag
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText(/TYPESAFE_API_KEY/)).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Start session' })).toBeDisabled();
+  const notifications = dialog.getByRole('region', { name: /Notifications/ });
+  await expect(notifications).toHaveAttribute('aria-live', 'polite');
+  const warning = notifications.getByRole('listitem').filter({ hasText: 'Learning provider is not configured' });
+  await expect(warning).toBeVisible();
+  await page.waitForTimeout(5500);
+  await expect(warning).toBeVisible();
+  await warning.getByRole('button', { name: /close/i }).focus();
+  await page.keyboard.press('Enter');
+  await expect(warning).toHaveCount(0);
+  await expect(dialog.getByText(/TYPESAFE_API_KEY/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await expect(warning).toBeVisible();
 });
 
 
