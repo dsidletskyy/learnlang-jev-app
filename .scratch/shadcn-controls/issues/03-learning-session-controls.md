@@ -4,10 +4,12 @@
 
 **Blocked by:** 01: Configure shadcn and migrate buttons.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The learning session language selector uses shadcn Select and retains available languages and entry counts.
-- [ ] The answer field uses shadcn Textarea and remains multiline; Ctrl+Enter and Command+Enter submit the answer.
-- [ ] Controls preserve the existing color theme, keyboard operation, focus handling, validation guidance, and disabled or read-only behavior.
-- [ ] Automated tests cover language selection, answer entry, keyboard submission, and relevant accessibility behavior.
-- [ ] Coordinate overlapping changes with the existing UI feedback tickets without regressing their behavior.
+- [x] The learning session language selector uses shadcn Select and retains available languages and entry counts.
+- [x] The answer field uses shadcn Textarea and remains multiline; Ctrl+Enter and Command+Enter submit the answer.
+- [x] Controls preserve the existing color theme, keyboard operation, focus handling, validation guidance, and disabled or read-only behavior.
+- [x] Automated tests cover language selection, answer entry, keyboard submission, and relevant accessibility behavior.
+- [x] Coordinate overlapping changes with the existing UI feedback tickets without regressing their behavior.
+
+**Validation:** Configured learning Playwright suite passed in Chromium, Firefox, and WebKit, including selection, multiline shortcuts, validation, and focus coverage.

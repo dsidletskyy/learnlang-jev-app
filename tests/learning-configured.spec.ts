@@ -1,16 +1,20 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
+
+async function selectOriginalLanguage(dialog: Locator, language: string) {
+  await dialog.getByRole('button', { name: 'Original language' }).click();
+  await dialog.getByRole('option', { name: language }).click();
+}
 
 test.beforeEach(() => { execFileSync('node', ['tests/isolation/reset.mjs'], { stdio: 'pipe' }); });
 
 test('selects languages and practices each matching entry once with exact answers', async ({ page }) => {
   await page.goto('/');
-  for (const [original, language, translation] of [['Hello', 'en', 'Привіт'], ['Goodbye', 'en', 'Бувай'], ['Hallo', 'de', 'Вітаю']]) {
+  for (const [original, language, translation] of [['Hello', 'English', 'Привіт'], ['Goodbye', 'English', 'Бувай'], ['Hallo', 'German', 'Вітаю']]) {
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill(original);
-    await add.getByRole('button', { name: 'Original language' }).click();
-    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
+    await selectOriginalLanguage(add, language);
     await add.getByLabel('Translation').fill(translation);
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
@@ -53,12 +57,11 @@ test('selects languages and practices each matching entry once with exact answer
 
 test('loading failure preserves selected language and allows retry', async ({ page }) => {
   await page.goto('/');
-  for (const language of ['en', 'de']) {
+  for (const language of ['English', 'German']) {
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill('Original');
-    await add.getByRole('button', { name: 'Original language' }).click();
-    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
+    await selectOriginalLanguage(add, language);
     await add.getByLabel('Translation').fill('Translation');
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
@@ -428,12 +431,11 @@ test('sessions retain snapshots when another tab edits and deletes entries', asy
 
 test('stale language selection does not start an empty session after another tab deletes its entries', async ({ page, context }) => {
   await page.goto('/');
-  for (const [original, language, translation] of [['Hello', 'en', 'Greeting'], ['Hallo', 'de', 'German greeting']]) {
+  for (const [original, language, translation] of [['Hello', 'English', 'Greeting'], ['Hallo', 'German', 'German greeting']]) {
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill(original);
-    await add.getByRole('button', { name: 'Original language' }).click();
-    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
+    await selectOriginalLanguage(add, language);
     await add.getByLabel('Translation').fill(translation);
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
@@ -487,12 +489,11 @@ test('narrow keyboard practice displays the full multiline prompt and permits sa
 
 test('language selection stays fixed while session entries load', async ({ page }) => {
   await page.goto('/');
-  for (const [original, language, translation] of [['Hello', 'en', 'Greeting'], ['Hallo', 'de', 'German greeting']]) {
+  for (const [original, language, translation] of [['Hello', 'English', 'Greeting'], ['Hallo', 'German', 'German greeting']]) {
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill(original);
-    await add.getByRole('button', { name: 'Original language' }).click();
-    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
+    await selectOriginalLanguage(add, language);
     await add.getByLabel('Translation').fill(translation);
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();

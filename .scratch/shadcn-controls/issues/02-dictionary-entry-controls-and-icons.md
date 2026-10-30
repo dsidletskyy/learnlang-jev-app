@@ -4,11 +4,13 @@
 
 **Blocked by:** 01: Configure shadcn and migrate buttons.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The original-language selector uses shadcn Select; original phrase and translation use shadcn Textarea.
-- [ ] Both text fields remain multiline; existing values, validation, and accessible field guidance work as before.
-- [ ] Edit and delete actions use Lucide pencil and trash icons with accessible action names.
-- [ ] Controls preserve the existing color theme, keyboard operation, focus visibility, and modal behavior.
-- [ ] Automated tests cover entry creation and editing, selection, validation, and edit/delete actions.
-- [ ] Coordinate overlapping changes with the existing UI feedback tickets without regressing their behavior.
+- [x] The original-language selector uses shadcn Select; original phrase and translation use shadcn Textarea.
+- [x] Both text fields remain multiline; existing values, validation, and accessible field guidance work as before.
+- [x] Edit and delete actions use Lucide pencil and trash icons with accessible action names.
+- [x] Controls preserve the existing color theme, keyboard operation, focus visibility, and modal behavior.
+- [x] Automated tests cover entry creation and editing, selection, validation, and edit/delete actions.
+- [x] Coordinate overlapping changes with the existing UI feedback tickets without regressing their behavior.
+
+**Validation:** Dictionary entry, deletion, review, and keyboard Playwright suites passed in Chromium, Firefox, and WebKit, including edit, validation, selection, and focus coverage.
