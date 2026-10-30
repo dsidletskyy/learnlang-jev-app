@@ -16,6 +16,10 @@ import { evaluateMeaningMatch } from './meaning-match-actions';
 type Entry = { id: number; original: string; language: string; translation: string };
 type Fields = { original: string; language: string; translation: string };
 
+function showErrorToast(message: string) {
+  toast.error(message, { duration: Infinity, closeButton: true, richColors: true });
+}
+
 export default function Dictionary({ entries, jevConfigured }: { entries: Entry[]; jevConfigured: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [dialogElement, setDialogElement] = useState<HTMLDialogElement | null>(null);
@@ -83,8 +87,8 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     setLearningError('');
     try {
       const result = await loadSessionEntries(selectedLanguage);
-      if (!result.ok) { setLearningError('Could not load entries. Check the database and try again.'); return; }
-      if (!result.entries.length) { setLearningError('No entries remain for this language. Choose another language or add a phrase.'); return; }
+      if (!result.ok) { const message = 'Could not load entries. Check the database and try again.'; setLearningError(message); showErrorToast(message); return; }
+      if (!result.entries.length) { const message = 'No entries remain for this language. Choose another language or add a phrase.'; setLearningError(message); showErrorToast(message); return; }
       const shuffled = [...result.entries];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -92,7 +96,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       }
       setPosition(0); setAnswer(''); setAnswerError(''); setFeedback(null); setReviews([]);
       setSession(shuffled); learningDialog?.close();
-    } catch { setLearningError('Could not load entries. Check the database and try again.'); }
+    } catch { const message = 'Could not load entries. Check the database and try again.'; setLearningError(message); showErrorToast(message); }
     finally { setLoading(false); }
   }
 
@@ -100,7 +104,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     event.preventDefault();
     if (evaluationPending.current) return;
     const parsed = phraseSchema.safeParse(answer);
-    if (!parsed.success) { setAnswerError(parsed.error.issues[0].message); answerRef.current?.focus(); return; }
+    if (!parsed.success) { setAnswerError(parsed.error.issues[0].message); showErrorToast('Check your answer and try again.'); answerRef.current?.focus(); return; }
     const trimmed = parsed.data;
     setAnswer(trimmed); setAnswerError('');
     const entry = session![position];
@@ -111,9 +115,12 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       const result = await evaluateMeaningMatch({ original: entry.original, answer: trimmed, language: entry.language });
       if (generation !== sessionGeneration.current) return;
       if (result.ok) setFeedback(result.score);
-      else setAnswerError(result.error);
+      else { setAnswerError(result.error); showErrorToast(result.error); }
     } catch {
-      if (generation === sessionGeneration.current) setAnswerError('Could not evaluate your answer. Try again; another attempt may incur a provider charge.');
+      if (generation === sessionGeneration.current) {
+        const message = 'Could not evaluate your answer. Try again; another attempt may incur a provider charge.';
+        setAnswerError(message); showErrorToast(message);
+      }
     } finally {
       if (generation === sessionGeneration.current) { evaluationPending.current = false; setEvaluating(false); }
     }
@@ -138,6 +145,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
       setErrors({ original: fieldErrors.original?.[0], language: fieldErrors.language?.[0], translation: fieldErrors.translation?.[0] });
+      showErrorToast('Check the highlighted fields and try again.');
       return;
     }
     setErrors({});
@@ -145,13 +153,14 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     startTransition(async () => {
       try {
         const result = editingId === null ? await addDictionaryEntry(fields) : await editDictionaryEntry(editingId, fields);
-        if (!result.ok) { setError(result.error); return; }
+        if (!result.ok) { setError(result.error); showErrorToast(result.error); return; }
         dialog.current?.close();
         setFields({ original: '', language: 'en', translation: '' });
         toast.success(editingId === null ? 'Phrase added.' : 'Phrase updated.');
         router.refresh();
       } catch {
-        setError('Could not save phrase. Check the database and try again.');
+        const message = 'Could not save phrase. Check the database and try again.';
+        setError(message); showErrorToast(message);
       }
     });
   }
@@ -162,13 +171,14 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     startTransition(async () => {
       try {
         const result = await deleteDictionaryEntry(entryToDelete.id);
-        if (!result.ok) { setDeleteError(result.error); return; }
+        if (!result.ok) { setDeleteError(result.error); showErrorToast(result.error); return; }
         deleteDialog.current?.close();
         setEntryToDelete(null);
         if (result.deleted) toast.success('Phrase deleted.');
         router.refresh();
       } catch {
-        setDeleteError('Could not delete phrase. Check the database and try again.');
+        const message = 'Could not delete phrase. Check the database and try again.';
+        setDeleteError(message); showErrorToast(message);
       }
     });
   }
