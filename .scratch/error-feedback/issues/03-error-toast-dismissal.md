@@ -4,10 +4,10 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Non-validation error toasts, including database and learning-provider setup warnings, automatically close after 5 seconds.
-- [ ] Error toasts have no close button and their content remains unobstructed.
-- [ ] Existing setup and recovery guidance remains available after the toast closes.
-- [ ] Success toast appearance and behavior remain unchanged.
-- [ ] Automated tests cover expiry and retained guidance.
+- [x] Non-validation error toasts, including database and learning-provider setup warnings, automatically close after 5 seconds.
+- [x] Error toasts have no close button and their content remains unobstructed.
+- [x] Existing setup and recovery guidance remains available after the toast closes.
+- [x] Success toast appearance and behavior remain unchanged.
+- [x] Automated tests cover expiry and retained guidance.

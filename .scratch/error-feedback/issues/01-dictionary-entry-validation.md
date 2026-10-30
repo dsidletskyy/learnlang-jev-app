@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Invalid fields and their error messages use the reference's destructive styling, including a visible invalid border.
-- [ ] Input validation does not produce an error toast.
-- [ ] Field errors first appear on a save attempt, not during initial entry.
-- [ ] After a failed save, edited fields are revalidated: errors clear when valid and return if invalid again.
-- [ ] Invalid fields expose their state and associated messages accessibly.
-- [ ] Automated tests cover validation, styling, and correction.
+- [x] Invalid fields and their error messages use the reference's destructive styling, including a visible invalid border.
+- [x] Input validation does not produce an error toast.
+- [x] Field errors first appear on a save attempt, not during initial entry.
+- [x] After a failed save, edited fields are revalidated: errors clear when valid and return if invalid again.
+- [x] Invalid fields expose their state and associated messages accessibly.
+- [x] Automated tests cover validation, styling, and correction.

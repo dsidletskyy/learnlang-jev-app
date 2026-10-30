@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] An invalid answer field and its error message use the reference's destructive styling, including a visible invalid border.
-- [ ] Input validation does not produce an error toast.
-- [ ] Validation errors first appear on submission, not during initial entry.
-- [ ] After invalid submission, editing revalidates the answer: the error clears when valid and returns if invalid again.
-- [ ] The invalid field exposes its state and associated message accessibly.
-- [ ] Automated tests cover validation, styling, and correction.
+- [x] An invalid answer field and its error message use the reference's destructive styling, including a visible invalid border.
+- [x] Input validation does not produce an error toast.
+- [x] Validation errors first appear on submission, not during initial entry.
+- [x] After invalid submission, editing revalidates the answer: the error clears when valid and returns if invalid again.
+- [x] The invalid field exposes its state and associated message accessibly.
+- [x] Automated tests cover validation, styling, and correction.
