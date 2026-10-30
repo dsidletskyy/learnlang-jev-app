@@ -16,7 +16,15 @@ test('selects languages and practices each matching entry once with exact answer
   }
   await page.getByRole('button', { name: 'Start learning' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByLabel('Original language').locator('option')).toHaveText(['English (2)', 'German (1)']);
+  const language = dialog.getByRole('button', { name: /Original language/ });
+  await expect(language).toContainText('English (2)');
+  await language.press('Enter');
+  await expect(page.getByRole('option')).toHaveText(['English (2)', 'German (1)']);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(language).toContainText('German (1)');
+  await language.press('Enter');
+  await page.getByRole('option', { name: 'English (2)' }).click();
   await dialog.getByRole('button', { name: 'Start session' }).click();
   const seen = new Set<string>();
   for (let i = 1; i <= 2; i++) {
@@ -55,11 +63,12 @@ test('loading failure preserves selected language and allows retry', async ({ pa
   }
   await page.getByRole('button', { name: 'Start learning' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Original language').selectOption('de');
+  await dialog.getByRole('button', { name: /Original language/ }).click();
+  await page.getByRole('option', { name: 'German (1)' }).click();
   await page.route('**/', route => route.request().method() === 'POST' ? route.abort() : route.continue());
   await dialog.getByRole('button', { name: 'Start session' }).click();
   await expect(dialog.getByRole('alert')).toContainText('Could not load entries');
-  await expect(dialog.getByLabel('Original language')).toHaveValue('de');
+  await expect(dialog.getByRole('button', { name: /Original language/ })).toContainText('German (1)');
   await expect(dialog.getByLabel('Original language')).toBeEnabled();
   await page.unrouteAll();
   await dialog.getByRole('button', { name: 'Start session' }).click();
@@ -430,14 +439,15 @@ test('stale language selection does not start an empty session after another tab
   await other.goto('/');
   await page.getByRole('button', { name: 'Start learning' }).click();
   const selection = page.getByRole('dialog');
-  await selection.getByLabel('Original language').selectOption('en');
+  await expect(selection.getByRole('button', { name: /Original language/ })).toContainText('English (1)');
   await other.getByRole('article').filter({ hasText: 'Hello' }).getByRole('button', { name: 'Delete phrase' }).click();
   await other.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(other.getByRole('dialog')).toBeHidden();
   await selection.getByRole('button', { name: 'Start session' }).click();
   await expect(selection.getByRole('alert')).toContainText('No entries remain for this language');
   await expect(page.getByLabel('Answer')).toHaveCount(0);
-  await selection.getByLabel('Original language').selectOption('de');
+  await selection.getByRole('button', { name: /Original language/ }).click();
+  await page.getByRole('option', { name: 'German (1)' }).click();
   await selection.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByText('German — 1 of 1')).toBeVisible();
   await expect(page.getByLabel('Translation')).toHaveText('German greeting');
@@ -499,7 +509,7 @@ test('language selection stays fixed while session entries load', async ({ page 
   await selection.getByRole('button', { name: 'Start session' }).click();
   await responseReceived;
   await expect(selection.getByLabel('Original language')).toBeDisabled();
-  await expect(selection.getByLabel('Original language')).toHaveValue('en');
+  await expect(selection.getByRole('button', { name: /Original language/ })).toContainText('English (1)');
   await expect(selection.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(selection).toBeVisible();
@@ -688,5 +698,29 @@ for (const outcome of ['success', 'failure'] as const) {
       await expect(page.getByLabel('Answer')).toBeFocused();
       await expect(page.getByLabel('Answer')).toHaveValue('provider failure');
     }
+  });
+}
+
+for (const shortcut of ['Control+Enter', 'Meta+Enter']) {
+  test(`multiline answer supports ${shortcut} and announces validation`, async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Add phrase' }).first().click();
+    const add = page.getByRole('dialog');
+    await add.getByLabel('Original phrase').fill('Hello\nworld');
+    await add.getByLabel('Translation').fill('Greeting');
+    await add.getByRole('button', { name: 'Save phrase' }).click();
+    await expect(add).toBeHidden();
+    await page.getByRole('button', { name: 'Start learning' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+    const answer = page.getByLabel('Answer');
+    await expect(answer).toBeFocused();
+    await answer.press(shortcut);
+    await expect(answer).toHaveAttribute('aria-invalid', 'true');
+    await expect(answer).toHaveAttribute('aria-describedby', 'answer-error');
+    await expect(page.locator('#answer-error')).toHaveText('Enter a value.');
+    await answer.fill('Hello\nworld');
+    await expect(answer).toHaveValue('Hello\nworld');
+    await answer.press(shortcut);
+    await expect(page.getByText('Estimated meaning-match score:')).toContainText('100%');
   });
 }

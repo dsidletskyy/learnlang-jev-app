@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages, phraseSchema } from '../lib/dictionary-entry';
 import { Button } from '../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Textarea } from '../components/ui/textarea';
+import { Label } from 'react-aria-components';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
 import { evaluateMeaningMatch } from './meaning-match-actions';
@@ -16,7 +19,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
   const [deleteError, setDeleteError] = useState('');
-  const learningDialog = useRef<HTMLDialogElement>(null);
+  const [learningDialog, setLearningDialog] = useState<HTMLDialogElement | null>(null);
   const exitDialog = useRef<HTMLDialogElement>(null);
   const exitButtonRef = useRef<HTMLButtonElement>(null);
   const answerRef = useRef<HTMLTextAreaElement>(null);
@@ -40,11 +43,11 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const availableLanguages = languages.map(language => ({ ...language, count: entries.filter(entry => entry.language === language.code).length })).filter(language => language.count > 0);
 
   useEffect(() => {
-    if (!session && openLearningAfterSummary.current) {
-      learningDialog.current?.showModal();
+    if (!session && learningDialog && openLearningAfterSummary.current) {
+      learningDialog.showModal();
       openLearningAfterSummary.current = false;
     }
-  }, [session]);
+  }, [session, learningDialog]);
 
   useEffect(() => {
     if (!session || exitDialog.current?.open) return;
@@ -84,7 +87,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
       setPosition(0); setAnswer(''); setAnswerError(''); setFeedback(null); setReviews([]);
-      setSession(shuffled); learningDialog.current?.close();
+      setSession(shuffled); learningDialog?.close();
     } catch { setLearningError('Could not load entries. Check the database and try again.'); }
     finally { setLoading(false); }
   }
@@ -205,7 +208,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase font-bold">{entry.original}</p><Button ref={nextRef} onPress={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
-            <textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
+            <Textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
             {answerError && <p id="answer-error" role="alert">{answerError}</p>}
             <Button type="submit" ref={submitRef} isDisabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button>
           </form>}
@@ -215,14 +218,17 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   return <main>
     <h1>Dictionary</h1>
     {entries.length > 0 && <Button onPress={() => openDialog()}>Add phrase</Button>}
-    <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog.current?.showModal(); }}>Start learning</Button>
-    <dialog ref={learningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
+    <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); }}>Start learning</Button>
+    <dialog ref={setLearningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
       <h2 id="learning-title">Start learning</h2>
-      <label htmlFor="learning-language">Original language</label>
-      <select id="learning-language" disabled={loading} value={selectedLanguage} onChange={event => setSelectedLanguage(event.target.value)}>{availableLanguages.map(language => <option key={language.code} value={language.code}>{language.name} ({language.count})</option>)}</select>
+      <Select selectedKey={selectedLanguage || null} onSelectionChange={key => setSelectedLanguage(String(key))} isDisabled={loading}>
+        <Label>Original language</Label>
+        <SelectTrigger id="learning-language"><SelectValue /></SelectTrigger>
+        <SelectContent UNSTABLE_portalContainer={learningDialog ?? undefined}>{availableLanguages.map(language => <SelectItem key={language.code} id={language.code}>{`${language.name} (${language.count})`}</SelectItem>)}</SelectContent>
+      </Select>
       {learningError && <p role="alert">{learningError}</p>}
       {!jevConfigured && <p role="alert">Set TYPESAFE_API_KEY in your local environment and restart the app to start learning.</p>}
-      <Button type="button" isDisabled={loading} onPress={() => learningDialog.current?.close()}>Cancel</Button>
+      <Button type="button" isDisabled={loading} onPress={() => learningDialog?.close()}>Cancel</Button>
       <Button isDisabled={!jevConfigured || loading || !selectedLanguage} onPress={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
     </dialog>
     <p role="status">{confirmation}</p>
