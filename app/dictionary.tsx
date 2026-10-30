@@ -181,7 +181,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       {reviews.map(({ entry, answer, score }) => <article key={entry.id}>
         <p>Translation</p><p className="phrase">{entry.translation}</p>
         <p>Answer</p><p className="phrase">{answer}</p>
-        <p>Original phrase</p><p className="phrase">{entry.original}</p>
+        <p>Original phrase</p><p className="phrase font-bold">{entry.original}</p>
         <p>Estimated meaning-match score: <strong>{score}%</strong></p>
       </article>)}
       <div className="actions">
@@ -202,7 +202,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <article>
         <p id="prompt-label">Translation</p>
         <div role="textbox" aria-readonly="true" aria-labelledby="prompt-label" className="phrase">{entry.translation}</div>
-        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><Button ref={nextRef} onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
+        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase font-bold">{entry.original}</p><Button ref={nextRef} onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
             <textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
@@ -228,7 +228,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     <p role="status">{confirmation}</p>
     {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><Button onClick={() => openDialog()}>Add phrase</Button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
-        <p className="phrase">{entry.original}</p>
+        <p className="phrase font-bold">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
         <Button type="button" aria-label="Edit phrase" title="Edit phrase" onClick={() => openDialog(entry)}><span aria-hidden="true">✎</span></Button>

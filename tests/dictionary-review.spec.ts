@@ -42,6 +42,8 @@ test('dictionary displays newest entries, duplicates and full multiline text', a
     await expect(translation).toHaveText('Erste Zeile\nZweite Zeile');
     await expect(original).toHaveCSS('white-space', 'pre-wrap');
     await expect(translation).toHaveCSS('white-space', 'pre-wrap');
+    await expect(original).toHaveCSS('font-weight', '700');
+    await expect(translation).toHaveCSS('font-weight', '400');
   }
 });
 

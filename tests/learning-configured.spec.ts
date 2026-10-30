@@ -119,6 +119,10 @@ test('completed session reviews answers in order and rounds the average', async 
     for (const text of [ordered[i].translation, ordered[i].answer, ordered[i].original, ordered[i].score]) {
       await expect(reviews.nth(i)).toContainText(text);
     }
+    const paragraphs = reviews.nth(i).locator('p');
+    await expect(paragraphs.nth(1)).toHaveCSS('font-weight', '400');
+    await expect(paragraphs.nth(3)).toHaveCSS('font-weight', '400');
+    await expect(paragraphs.nth(5)).toHaveCSS('font-weight', '700');
   }
 });
 
@@ -310,9 +314,12 @@ test('evaluation keeps submitted answer unchanged and prevents duplicate submiss
     await route.fulfill({ response });
   });
   const answer = page.getByLabel('Answer');
+  await expect(page.getByText('Hello', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Translation')).toHaveCSS('font-weight', '400');
   await answer.fill('Greetings');
   await page.getByRole('button', { name: 'Submit answer' }).click();
   await responseReceived;
+  await expect(page.getByText('Hello', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Evaluating…' })).toBeDisabled();
   await expect(answer).toHaveValue('Greetings');
   await expect(answer).toHaveAttribute('readonly', '');
@@ -322,6 +329,8 @@ test('evaluation keeps submitted answer unchanged and prevents duplicate submiss
   await exit.focus();
   release();
   await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+  await expect(page.getByText('Hello', { exact: true })).toHaveCSS('font-weight', '700');
+  await expect(page.getByText('Greetings', { exact: true })).toHaveCSS('font-weight', '400');
   await expect(exit).toBeFocused();
   expect(submissions).toBe(1);
 });
