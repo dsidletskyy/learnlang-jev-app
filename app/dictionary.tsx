@@ -225,8 +225,10 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   }
   return <main>
     <h1>Dictionary</h1>
-    {entries.length > 0 && <Button onPress={() => openDialog()}>Add phrase</Button>}
-    <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); if (!jevConfigured && !learningWarningShown.current) { learningWarningShown.current = true; toast.error('Learning provider is not configured.', { ...persistentToastOptions, id: 'learning-setup-warning' }); } }}>Start learning</Button>
+    <div className="button-row">
+      {entries.length > 0 && <Button onPress={() => openDialog()}>Add phrase</Button>}
+      <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); if (!jevConfigured && !learningWarningShown.current) { learningWarningShown.current = true; toast.error('Learning provider is not configured.', { ...persistentToastOptions, id: 'learning-setup-warning' }); } }}>Start learning</Button>
+    </div>
     <dialog ref={setLearningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
       <h2 id="learning-title">Start learning</h2>
       <Select selectedKey={selectedLanguage || null} onSelectionChange={key => setSelectedLanguage(String(key))} isDisabled={loading}>
@@ -236,16 +238,20 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       </Select>
       {learningError && <p role="alert">{learningError}</p>}
       {!jevConfigured && <p role="alert">Set TYPESAFE_API_KEY in your local environment and restart the app to start learning.</p>}
-      <Button type="button" isDisabled={loading} onPress={() => learningDialog?.close()}>Cancel</Button>
-      <Button isDisabled={!jevConfigured || loading || !selectedLanguage} onPress={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
+      <div className="actions">
+        <Button type="button" isDisabled={loading} onPress={() => learningDialog?.close()}>Cancel</Button>
+        <Button isDisabled={!jevConfigured || loading || !selectedLanguage} onPress={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
+      </div>
     </dialog>
     {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><Button onPress={() => openDialog()}>Add phrase</Button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase font-bold">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
-        <Button type="button" aria-label="Edit phrase" title="Edit phrase" onPress={() => openDialog(entry)}><Pencil aria-hidden="true" /></Button>
-        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><Trash2 aria-hidden="true" /></Button>
+        <div className="button-row">
+          <Button type="button" aria-label="Edit phrase" title="Edit phrase" onPress={() => openDialog(entry)}><Pencil aria-hidden="true" /></Button>
+          <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><Trash2 aria-hidden="true" /></Button>
+        </div>
       </article>)}
     </section>}
     <dialog ref={deleteDialog} aria-labelledby="delete-title" onCancel={event => { if (pending) event.preventDefault(); }}>
@@ -257,18 +263,26 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     <dialog ref={setDialogRef} aria-labelledby="dialog-title" onCancel={event => { if (pending) event.preventDefault(); }}>
       <h2 id="dialog-title">{editingId === null ? 'Add phrase' : 'Edit phrase'}</h2>
       <form onSubmit={save} noValidate>
-        <label htmlFor="original">Original phrase</label>
-        <Textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
-        {errors.original && <p id="original-error" role="alert">{errors.original}</p>}
-        <Select selectedKey={fields.language} onSelectionChange={key => setFields({ ...fields, language: String(key) })} isInvalid={!!errors.language}>
-          <Label>Original language</Label>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent portalContainer={dialogElement ?? undefined}>{languages.map(language => <SelectItem key={language.code} id={language.code}>{language.name}</SelectItem>)}</SelectContent>
-        </Select>
-        {errors.language && <p role="alert">{errors.language}</p>}
-        <label htmlFor="translation">Translation</label>
-        <Textarea id="translation" value={fields.translation} onChange={event => setFields({ ...fields, translation: event.target.value })} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
-        {errors.translation && <p id="translation-error" role="alert">{errors.translation}</p>}
+        <div className="phrase-fields">
+          <div className="phrase-field">
+            <label htmlFor="original">Original phrase</label>
+            <Textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
+            {errors.original && <p id="original-error" role="alert">{errors.original}</p>}
+          </div>
+          <div className="phrase-field">
+            <Select selectedKey={fields.language} onSelectionChange={key => setFields({ ...fields, language: String(key) })} isInvalid={!!errors.language}>
+              <Label>Original language</Label>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent portalContainer={dialogElement ?? undefined}>{languages.map(language => <SelectItem key={language.code} id={language.code}>{language.name}</SelectItem>)}</SelectContent>
+            </Select>
+            {errors.language && <p role="alert">{errors.language}</p>}
+          </div>
+          <div className="phrase-field">
+            <label htmlFor="translation">Translation</label>
+            <Textarea id="translation" value={fields.translation} onChange={event => setFields({ ...fields, translation: event.target.value })} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
+            {errors.translation && <p id="translation-error" role="alert">{errors.translation}</p>}
+          </div>
+        </div>
         {error && <p role="alert">{error}</p>}
         <div className="actions"><Button type="button" isDisabled={pending} onPress={() => dialog.current?.close()}>Cancel</Button><Button type="submit" isDisabled={pending}>Save phrase</Button></div>
       </form>
