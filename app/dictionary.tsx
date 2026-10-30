@@ -185,61 +185,61 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         <p>Estimated meaning-match score: <strong>{score}%</strong></p>
       </article>)}
       <div className="actions">
-        <Button ref={summaryBackRef} onClick={() => { setReviews([]); setSession(null); }}>Return to dictionary</Button>
-        <Button onClick={() => { setReviews([]); setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); openLearningAfterSummary.current = true; setSession(null); }}>Start another session</Button>
+        <Button ref={summaryBackRef} onPress={() => { setReviews([]); setSession(null); }}>Return to dictionary</Button>
+        <Button onPress={() => { setReviews([]); setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); openLearningAfterSummary.current = true; setSession(null); }}>Start another session</Button>
       </div>
     </main>;
     const entry = session[position];
     return <main>
       <h1>Practice</h1>
-      <Button ref={exitButtonRef} type="button" onClick={() => exitDialog.current?.showModal()}>Exit session</Button>
+      <Button ref={exitButtonRef} type="button" onPress={() => exitDialog.current?.showModal()}>Exit session</Button>
       <dialog ref={exitDialog} aria-labelledby="exit-title">
         <h2 id="exit-title">Exit session?</h2>
         <p>Unfinished progress will be discarded.</p>
-        <div className="actions"><Button type="button" onClick={() => exitDialog.current?.close()}>Cancel</Button><Button type="button" onClick={() => { exitDialog.current?.close(); sessionGeneration.current++; evaluationPending.current = false; setEvaluating(false); setSession(null); setReviews([]); }}>Exit session</Button></div>
+        <div className="actions"><Button type="button" onPress={() => exitDialog.current?.close()}>Cancel</Button><Button type="button" onPress={() => { exitDialog.current?.close(); sessionGeneration.current++; evaluationPending.current = false; setEvaluating(false); setSession(null); setReviews([]); }}>Exit session</Button></div>
       </dialog>
       <p>{languages.find(language => language.code === selectedLanguage)?.name} — {position + 1} of {session.length}</p>
       <article>
         <p id="prompt-label">Translation</p>
         <div role="textbox" aria-readonly="true" aria-labelledby="prompt-label" className="phrase">{entry.translation}</div>
-        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><Button ref={nextRef} onClick={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
+        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase">{entry.original}</p><Button ref={nextRef} onPress={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setFeedback(null); }}>Next</Button></> :
           <form onSubmit={submitAnswer} noValidate>
             <label htmlFor="answer">Answer</label>
             <textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
             {answerError && <p id="answer-error" role="alert">{answerError}</p>}
-            <Button ref={submitRef} disabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button>
+            <Button type="submit" ref={submitRef} isDisabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button>
           </form>}
       </article>
     </main>;
   }
   return <main>
     <h1>Dictionary</h1>
-    {entries.length > 0 && <Button onClick={() => openDialog()}>Add phrase</Button>}
-    <Button disabled={!entries.length} onClick={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog.current?.showModal(); }}>Start learning</Button>
+    {entries.length > 0 && <Button onPress={() => openDialog()}>Add phrase</Button>}
+    <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog.current?.showModal(); }}>Start learning</Button>
     <dialog ref={learningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
       <h2 id="learning-title">Start learning</h2>
       <label htmlFor="learning-language">Original language</label>
       <select id="learning-language" disabled={loading} value={selectedLanguage} onChange={event => setSelectedLanguage(event.target.value)}>{availableLanguages.map(language => <option key={language.code} value={language.code}>{language.name} ({language.count})</option>)}</select>
       {learningError && <p role="alert">{learningError}</p>}
       {!jevConfigured && <p role="alert">Set TYPESAFE_API_KEY in your local environment and restart the app to start learning.</p>}
-      <Button type="button" disabled={loading} onClick={() => learningDialog.current?.close()}>Cancel</Button>
-      <Button disabled={!jevConfigured || loading || !selectedLanguage} onClick={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
+      <Button type="button" isDisabled={loading} onPress={() => learningDialog.current?.close()}>Cancel</Button>
+      <Button isDisabled={!jevConfigured || loading || !selectedLanguage} onPress={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
     </dialog>
     <p role="status">{confirmation}</p>
-    {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><Button onClick={() => openDialog()}>Add phrase</Button></section> : <section aria-label="Dictionary entries">
+    {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><Button onPress={() => openDialog()}>Add phrase</Button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
-        <Button type="button" aria-label="Edit phrase" title="Edit phrase" onClick={() => openDialog(entry)}><span aria-hidden="true">✎</span></Button>
-        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onClick={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><span aria-hidden="true">🗑</span></Button>
+        <Button type="button" aria-label="Edit phrase" title="Edit phrase" onPress={() => openDialog(entry)}><span aria-hidden="true">✎</span></Button>
+        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><span aria-hidden="true">🗑</span></Button>
       </article>)}
     </section>}
     <dialog ref={deleteDialog} aria-labelledby="delete-title" onCancel={event => { if (pending) event.preventDefault(); }}>
       <h2 id="delete-title">Delete phrase?</h2>
       <p className="phrase">{entryToDelete?.original}</p>
       {deleteError && <p role="alert">{deleteError}</p>}
-      <div className="actions"><Button type="button" disabled={pending} onClick={() => deleteDialog.current?.close()}>Cancel</Button><Button type="button" disabled={pending} onClick={deleteEntry}>Delete</Button></div>
+      <div className="actions"><Button type="button" isDisabled={pending} onPress={() => deleteDialog.current?.close()}>Cancel</Button><Button type="button" isDisabled={pending} onPress={deleteEntry}>Delete</Button></div>
     </dialog>
     <dialog ref={dialog} aria-labelledby="dialog-title" onCancel={event => { if (pending) event.preventDefault(); }}>
       <h2 id="dialog-title">{editingId === null ? 'Add phrase' : 'Edit phrase'}</h2>
@@ -256,7 +256,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         <textarea id="translation" value={fields.translation} onChange={event => setFields({ ...fields, translation: event.target.value })} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
         {errors.translation && <p id="translation-error" role="alert">{errors.translation}</p>}
         {error && <p role="alert">{error}</p>}
-        <div className="actions"><Button type="button" disabled={pending} onClick={() => dialog.current?.close()}>Cancel</Button><Button disabled={pending}>Save phrase</Button></div>
+        <div className="actions"><Button type="button" isDisabled={pending} onPress={() => dialog.current?.close()}>Cancel</Button><Button type="submit" isDisabled={pending}>Save phrase</Button></div>
       </form>
     </dialog>
   </main>;

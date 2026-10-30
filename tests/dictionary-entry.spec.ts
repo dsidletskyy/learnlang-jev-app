@@ -166,3 +166,18 @@ test('last successful concurrent edit wins', async ({ page, context }, testInfo)
   await page.reload();
   await expect(page.locator('article').filter({ hasText: phrase })).toContainText('Last save');
 });
+
+test('keyboard activation saves a dictionary entry and keeps button focus visible', async ({ page }) => {
+  await page.goto('/');
+  const add = page.getByRole('button', { name: 'Add phrase' }).first();
+  await add.focus();
+  await expect(add).toHaveCSS('outline-style', 'solid');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Original phrase').fill('Keyboard phrase');
+  await dialog.getByLabel('Translation').fill('Keyboard translation');
+  await dialog.getByRole('button', { name: 'Save phrase' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('status').filter({ hasText: 'Phrase added' })).toBeVisible();
+});

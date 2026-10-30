@@ -1,7 +1,9 @@
+"use client"
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "../../lib/utils"
-import { Slot } from "@radix-ui/react-slot"
+import { Button as ButtonPrimitive, type ButtonProps as ButtonPrimitiveProps } from "react-aria-components"
 
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -41,16 +43,26 @@ function Button({
   className,
   variant = "default",
   size = "default",
-  asChild = false,
+  title,
+  ref,
   ...props
-}: React.ComponentProps<"button"> &
+}: Omit<ButtonPrimitiveProps, "className"> &
+  React.RefAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
+    className?: string
+    title?: string
   }) {
-  const Comp = asChild ? Slot : "button"
-
   return (
-    <Comp
+    <ButtonPrimitive
+      ref={(element) => {
+        // React Aria filters title, so retain the native tooltip on the button.
+        if (element) {
+          if (title) element.title = title
+          else element.removeAttribute("title")
+        }
+        if (typeof ref === "function") ref(element)
+        else if (ref) ref.current = element
+      }}
       data-slot="button"
       data-variant={variant}
       data-size={size}
