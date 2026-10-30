@@ -218,7 +218,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
             <label htmlFor="answer">Answer</label>
             <Textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => setAnswer(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
             {answerError && <p id="answer-error" role="alert">{answerError}</p>}
-            <Button type="submit" ref={submitRef} isDisabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button>
+            <div className="actions"><Button type="submit" ref={submitRef} isDisabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button></div>
           </form>}
       </article>
     </main>;

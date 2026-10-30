@@ -636,6 +636,32 @@ test.describe('touch learning controls', () => {
   });
 });
 
+test('practice answer and submit button have consistent spacing', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Greeting');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  const answer = page.getByLabel('Answer');
+  const submit = page.getByRole('button', { name: 'Submit answer' });
+  async function expectGap(upperElement: Locator) {
+    const upper = await upperElement.boundingBox();
+    const lower = await submit.boundingBox();
+    expect(upper).not.toBeNull();
+    expect(lower).not.toBeNull();
+    expect(lower!.y - (upper!.y + upper!.height)).toBeCloseTo(16, 0);
+  }
+  await expectGap(answer);
+  await submit.click();
+  const error = page.getByText('Enter a value.');
+  await expect(error).toBeVisible();
+  await expectGap(error);
+});
+
 test('repeated invalid submissions restore answer focus', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Add phrase' }).first().click();
