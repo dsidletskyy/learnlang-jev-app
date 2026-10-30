@@ -1,12 +1,43 @@
 import { expect, test } from '@playwright/test';
 
-test('invalid dictionary submission retains inline guidance', async ({ page }) => {
+test('dictionary validation appears on save and updates as fields are corrected', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Add phrase' }).first().click();
   const dialog = page.getByRole('dialog');
+  const original = dialog.getByLabel('Original phrase');
+  const translation = dialog.getByLabel('Translation');
+  await original.fill('   ');
+  await expect(original).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.getByText('Enter a value.')).toHaveCount(0);
+
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
-  await expect(dialog.locator('#original-error')).toHaveText('Enter a value.');
-  await expect(dialog.locator('#translation-error')).toHaveText('Enter a value.');
+  for (const field of [original, translation]) {
+    await expect(field).toHaveAttribute('aria-invalid', 'true');
+    await expect(field).toHaveAccessibleDescription('Enter a value.');
+    await expect(field).toHaveCSS('border-style', 'solid');
+    await expect(field).toHaveCSS('border-color', 'rgb(220, 38, 38)');
+  }
+  const errors = dialog.getByText('Enter a value.');
+  await expect(errors).toHaveCount(2);
+  await expect(errors.first()).toHaveCSS('color', 'rgb(220, 38, 38)');
+  await expect(errors.last()).toHaveCSS('color', 'rgb(220, 38, 38)');
+  await expect(page.getByRole('listitem').filter({ hasText: 'Check the highlighted fields and try again.' })).toHaveCount(0);
+
+  await original.fill('Valid phrase');
+  await expect(original).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(original).not.toHaveAccessibleDescription('Enter a value.');
+  await expect(translation).toHaveAccessibleDescription('Enter a value.');
+  await original.fill('😀'.repeat(2001));
+  await expect(original).toHaveAccessibleDescription('Use at most 2,000 Unicode code points.');
+  await original.fill('Valid phrase');
+  await translation.fill('Valid translation');
+  await expect(dialog.getByText('Enter a value.')).toHaveCount(0);
+  await translation.fill(' ');
+  await expect(translation).toHaveAccessibleDescription('Enter a value.');
+  await translation.fill('Valid translation');
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog).toBeHidden();
+
 });
 
 test('successful save still shows temporary success toast', async ({ page }) => {
