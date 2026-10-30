@@ -9,7 +9,7 @@ test('adds a multiline dictionary entry and retains it after reload', async ({ p
   await dialog.getByLabel('Translation').fill('  Привіт\nсвіте  ');
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('status').filter({ hasText: 'Phrase added' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Notifications/ }).getByRole('listitem').filter({ hasText: 'Phrase added' })).toBeVisible();
   await page.reload();
   await expect(page.getByText(`Hello ${testInfo.project.name} world`, { exact: true })).toBeVisible();
   await expect(page.getByText('Привіт світе', { exact: true }).first()).toBeVisible();
@@ -85,7 +85,7 @@ test('edits all fields without changing entry order and retains changes after re
   await dialog.getByLabel('Translation').fill('  Updated\ntranslation  ');
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('status').filter({ hasText: 'Phrase updated.' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Notifications/ }).getByRole('listitem').filter({ hasText: 'Phrase updated.' })).toBeVisible();
   await page.reload();
   await expect(cards.nth(0)).toContainText('Newer phrase');
   await expect(cards.nth(1)).toContainText('Updated phrase');
@@ -181,7 +181,7 @@ test('keyboard activation saves a dictionary entry and keeps button focus visibl
   await dialog.getByRole('button', { name: 'Save phrase' }).focus();
   await page.keyboard.press('Enter');
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('status').filter({ hasText: 'Phrase added' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Notifications/ }).getByRole('listitem').filter({ hasText: 'Phrase added' })).toBeVisible();
 });
 
 test('chooses original language by keyboard inside the entry dialog', async ({ page }) => {

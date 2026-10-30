@@ -8,6 +8,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select';
 import { Label } from 'react-aria-components';
 import { Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
 import { evaluateMeaningMatch } from './meaning-match-actions';
@@ -121,21 +122,13 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [confirmation, setConfirmation] = useState('');
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (confirmation !== 'Phrase added.' && confirmation !== 'Phrase updated.') return;
-    const timer = window.setTimeout(() => setConfirmation(''), 5000);
-    return () => window.clearTimeout(timer);
-  }, [confirmation]);
 
   function openDialog(entry?: Entry) {
     setEditingId(entry?.id ?? null);
     setFields(entry ? { original: entry.original, language: entry.language, translation: entry.translation } : { original: '', language: 'en', translation: '' });
     setErrors({});
     setError('');
-    setConfirmation('');
     dialog.current?.showModal();
   }
 
@@ -155,7 +148,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         if (!result.ok) { setError(result.error); return; }
         dialog.current?.close();
         setFields({ original: '', language: 'en', translation: '' });
-        setConfirmation(editingId === null ? 'Phrase added.' : 'Phrase updated.');
+        toast.success(editingId === null ? 'Phrase added.' : 'Phrase updated.');
         router.refresh();
       } catch {
         setError('Could not save phrase. Check the database and try again.');
@@ -172,7 +165,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         if (!result.ok) { setDeleteError(result.error); return; }
         deleteDialog.current?.close();
         setEntryToDelete(null);
-        setConfirmation(result.deleted ? 'Phrase deleted.' : '');
+        if (result.deleted) toast.success('Phrase deleted.');
         router.refresh();
       } catch {
         setDeleteError('Could not delete phrase. Check the database and try again.');
@@ -234,14 +227,13 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <Button type="button" isDisabled={loading} onPress={() => learningDialog?.close()}>Cancel</Button>
       <Button isDisabled={!jevConfigured || loading || !selectedLanguage} onPress={startSession}>{loading ? 'Loading…' : 'Start session'}</Button>
     </dialog>
-    <p role="status">{confirmation}</p>
     {entries.length === 0 ? <section aria-label="Empty dictionary"><p>Welcome! Add your first phrase to your dictionary.</p><Button onPress={() => openDialog()}>Add phrase</Button></section> : <section aria-label="Dictionary entries">
       {entries.map(entry => <article key={entry.id}>
         <p className="phrase font-bold">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
         <Button type="button" aria-label="Edit phrase" title="Edit phrase" onPress={() => openDialog(entry)}><Pencil aria-hidden="true" /></Button>
-        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><Trash2 aria-hidden="true" /></Button>
+        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><Trash2 aria-hidden="true" /></Button>
       </article>)}
     </section>}
     <dialog ref={deleteDialog} aria-labelledby="delete-title" onCancel={event => { if (pending) event.preventDefault(); }}>

@@ -31,7 +31,7 @@ test('deletes the confirmed entry persistently', async ({ page }) => {
   const confirmation = page.getByRole('dialog');
   await confirmation.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(confirmation).toBeHidden();
-  await expect(page.getByRole('status').filter({ hasText: 'Phrase deleted.' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Notifications/ }).getByRole('listitem').filter({ hasText: 'Phrase deleted.' })).toBeVisible();
   await page.reload();
   await expect(page.getByText('Delete this phrase', { exact: true })).toHaveCount(0);
 });
@@ -53,7 +53,7 @@ test('refreshes without claiming deletion when another tab deleted the entry', a
   await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByText('Deleted in another tab', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('status').filter({ hasText: 'Phrase deleted.' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: /Notifications/ }).getByRole('listitem').filter({ hasText: 'Phrase deleted.' })).toHaveCount(0);
 });
 
 test('deletion failure keeps confirmation open with an inline error', async ({ page }, testInfo) => {
