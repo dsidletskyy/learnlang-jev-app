@@ -39,6 +39,30 @@ test('evaluation failure shows actionable toast and retains answer guidance', as
   await expect(page.locator('#answer-error')).toContainText('provider charge');
 });
 
+test('provider recovery guidance survives editing after answer validation and toast expiry', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Original phrase').fill('Learning answer');
+  await dialog.getByLabel('Translation').fill('Translation');
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await dialog.getByRole('button', { name: 'Start session' }).click();
+  const answer = page.getByLabel('Answer');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.getByText('Enter a value.')).toBeVisible();
+  await answer.fill('Different answer');
+  await page.route('**/', route => route.request().method() === 'POST' ? route.abort() : route.continue());
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  const notification = page.getByRole('listitem').filter({ hasText: 'Could not evaluate your answer.' });
+  await expect(notification).toBeVisible();
+  await answer.fill('Edited answer');
+  await expect(notification).toBeVisible();
+  await expect(notification).toHaveCount(0, { timeout: 6500 });
+  await expect(page.getByText('Could not evaluate your answer. Try again; another attempt may incur a provider charge.')).toBeVisible();
+});
+
 test('learning answer validation appears on submit and revalidates on correction', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Add phrase' }).first().click();

@@ -41,6 +41,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [position, setPosition] = useState(0);
   const [answer, setAnswer] = useState('');
   const [answerError, setAnswerError] = useState('');
+  const [providerError, setProviderError] = useState('');
   const [answerValidationStarted, setAnswerValidationStarted] = useState(false);
   const [feedback, setFeedback] = useState<number | null>(null);
   const [reviews, setReviews] = useState<{ entry: Entry; answer: string; score: number }[]>([]);
@@ -69,10 +70,10 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   }, [session, position, feedback]);
 
   useEffect(() => {
-    if (answerError && !evaluating && (document.activeElement === document.body || document.activeElement === submitRef.current)) {
+    if ((answerError || providerError) && !evaluating && (document.activeElement === document.body || document.activeElement === submitRef.current)) {
       answerRef.current?.focus();
     }
-  }, [answerError, evaluating]);
+  }, [answerError, providerError, evaluating]);
 
   useEffect(() => {
     if (!session || position >= session.length) return;
@@ -96,7 +97,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      setPosition(0); setAnswer(''); setAnswerError(''); setAnswerValidationStarted(false); setFeedback(null); setReviews([]);
+      setPosition(0); setAnswer(''); setAnswerError(''); setProviderError(''); setAnswerValidationStarted(false); setFeedback(null); setReviews([]);
       setSession(shuffled); learningDialog?.close();
     } catch { const message = 'Could not load entries. Check the database and try again.'; setLearningError(message); showErrorToast(message); }
     finally { setLoading(false); }
@@ -108,7 +109,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     const parsed = phraseSchema.safeParse(answer);
     if (!parsed.success) { setAnswerValidationStarted(true); setAnswerError(parsed.error.issues[0].message); answerRef.current?.focus(); return; }
     const trimmed = parsed.data;
-    setAnswer(trimmed); setAnswerError('');
+    setAnswer(trimmed); setAnswerError(''); setProviderError('');
     const entry = session![position];
     if (trimmed.toLowerCase() === entry.original.trim().toLowerCase()) { setFeedback(100); return; }
     const generation = sessionGeneration.current;
@@ -117,11 +118,11 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       const result = await evaluateMeaningMatch({ original: entry.original, answer: trimmed, language: entry.language });
       if (generation !== sessionGeneration.current) return;
       if (result.ok) setFeedback(result.score);
-      else { setAnswerError(result.error); showErrorToast(result.error); }
+      else { setProviderError(result.error); showErrorToast(result.error); }
     } catch {
       if (generation === sessionGeneration.current) {
         const message = 'Could not evaluate your answer. Try again; another attempt may incur a provider charge.';
-        setAnswerError(message); showErrorToast(message);
+        setProviderError(message); showErrorToast(message);
       }
     } finally {
       if (generation === sessionGeneration.current) { evaluationPending.current = false; setEvaluating(false); }
@@ -223,11 +224,11 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <article>
         <p id="prompt-label">Translation</p>
         <div role="textbox" aria-readonly="true" aria-labelledby="prompt-label" className="phrase">{entry.translation}</div>
-        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase font-bold">{entry.original}</p><Button ref={nextRef} onPress={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setAnswerError(''); setAnswerValidationStarted(false); setFeedback(null); }}>Next</Button></> :
+        {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase font-bold">{entry.original}</p><Button ref={nextRef} onPress={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setAnswerError(''); setProviderError(''); setAnswerValidationStarted(false); setFeedback(null); }}>Next</Button></> :
           <form onSubmit={submitAnswer} noValidate>
-            <label htmlFor="answer" className={answerError ? "text-destructive" : undefined}>Answer</label>
-            <Textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => { const value = event.target.value; setAnswer(value); if (answerValidationStarted) { const parsed = phraseSchema.safeParse(value); setAnswerError(parsed.success ? '' : parsed.error.issues[0].message); } }} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
-            {answerError && <p id="answer-error" role="alert" className="text-destructive text-sm">{answerError}</p>}
+            <label htmlFor="answer" className={answerError || providerError ? "text-destructive" : undefined}>Answer</label>
+            <Textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => { const value = event.target.value; setAnswer(value); if (answerValidationStarted) { const parsed = phraseSchema.safeParse(value); setAnswerError(parsed.success ? '' : parsed.error.issues[0].message); } }} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!(answerError || providerError)} aria-describedby={answerError || providerError ? 'answer-error' : undefined} />
+            {(answerError || providerError) && <p id="answer-error" role="alert" className="text-destructive text-sm">{[answerError, providerError].filter(Boolean).join(' ')}</p>}
             <div className="actions"><Button type="submit" ref={submitRef} isDisabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button></div>
           </form>}
       </article>
