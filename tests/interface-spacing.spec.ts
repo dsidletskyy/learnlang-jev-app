@@ -65,5 +65,6 @@ test('Dictionary action buttons keep their gap on narrow screens', async ({ page
   const entry = page.getByRole('article').filter({ hasText: `Button spacing ${testInfo.project.name}` });
   await checkGap(entry.getByRole('button', { name: 'Edit phrase' }), entry.getByRole('button', { name: 'Delete phrase' }));
   await page.getByRole('button', { name: 'Start learning' }).click();
+  expect(await verticalGap(dialog.getByText('Original language', { exact: true }), dialog.getByRole('button', { name: 'Original language' }))).toBeCloseTo(8, 0);
   await checkGap(dialog.getByRole('button', { name: 'Cancel' }), dialog.getByRole('button', { name: 'Start session' }));
 });

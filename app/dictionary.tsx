@@ -231,11 +231,13 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     </div>
     <dialog ref={setLearningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
       <h2 id="learning-title">Start learning</h2>
-      <Select selectedKey={selectedLanguage || null} onSelectionChange={key => setSelectedLanguage(String(key))} isDisabled={loading}>
-        <Label>Original language</Label>
-        <SelectTrigger id="learning-language"><SelectValue /></SelectTrigger>
-        <SelectContent portalContainer={learningDialog ?? undefined}>{availableLanguages.map(language => <SelectItem key={language.code} id={language.code}>{`${language.name} (${language.count})`}</SelectItem>)}</SelectContent>
-      </Select>
+      <div className="phrase-field">
+        <Select selectedKey={selectedLanguage || null} onSelectionChange={key => setSelectedLanguage(String(key))} isDisabled={loading}>
+          <Label>Original language</Label>
+          <SelectTrigger id="learning-language"><SelectValue /></SelectTrigger>
+          <SelectContent portalContainer={learningDialog ?? undefined}>{availableLanguages.map(language => <SelectItem key={language.code} id={language.code}>{`${language.name} (${language.count})`}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
       {learningError && <p role="alert">{learningError}</p>}
       {!jevConfigured && <p role="alert">Set TYPESAFE_API_KEY in your local environment and restart the app to start learning.</p>}
       <div className="actions">
