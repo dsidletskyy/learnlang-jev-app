@@ -13,3 +13,22 @@ test('missing Jev key blocks learning with configuration guidance', async ({ pag
   await expect(dialog.getByText(/TYPESAFE_API_KEY/)).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Start session' })).toBeDisabled();
 });
+
+
+test('keyboard opens learning dialog and disabled session button cannot start', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Original phrase').fill('Learning keyboard phrase');
+  await dialog.getByLabel('Translation').fill('Learning keyboard translation');
+  await dialog.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).focus();
+  await page.keyboard.press('Space');
+  const start = dialog.getByRole('button', { name: 'Start session' });
+  await expect(start).toBeDisabled();
+  await expect(dialog.getByText(/TYPESAFE_API_KEY/)).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog).toBeHidden();
+});
