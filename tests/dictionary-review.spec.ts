@@ -23,7 +23,8 @@ test('dictionary displays newest entries, duplicates and full multiline text', a
     await page.getByRole('button', { name: 'Add phrase' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel('Original phrase').fill(original);
-    await dialog.getByLabel('Original language').selectOption(language);
+    await dialog.getByRole('button', { name: 'Original language' }).click();
+    await dialog.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
     await dialog.getByLabel('Translation').fill(translation);
     await dialog.getByRole('button', { name: 'Save phrase' }).click();
     await expect(dialog).toBeHidden();

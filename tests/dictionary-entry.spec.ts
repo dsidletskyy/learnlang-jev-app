@@ -5,7 +5,7 @@ test('adds a multiline dictionary entry and retains it after reload', async ({ p
   await page.getByRole('button', { name: 'Add phrase' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Original phrase').fill(`  Hello ${testInfo.project.name}\nworld  `);
-  await dialog.getByLabel('Original language').selectOption('en');
+  await expect(dialog.getByRole('button', { name: 'Original language' })).toContainText('English');
   await dialog.getByLabel('Translation').fill('  Привіт\nсвіте  ');
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
   await expect(dialog).toBeHidden();
@@ -24,7 +24,7 @@ test('validates text and preserves input, including Unicode code point limits', 
   await original.fill('  ');
   await translation.fill('retained');
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
-  await expect(dialog.getByText('Enter a value.')).toBeVisible();
+  await expect(original).toHaveAccessibleDescription('Enter a value.');
   await expect(translation).toHaveValue('retained');
   await original.fill('😀'.repeat(2001));
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
@@ -40,9 +40,10 @@ test('languages are ordered and duplicate entries are allowed', async ({ page },
   for (let i = 0; i < 2; i++) {
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByLabel('Original language').locator('option')).toHaveText(['English', 'German', 'Italian', 'Russian', 'Slovak', 'Ukrainian']);
+    await dialog.getByRole('button', { name: 'Original language' }).click();
+    await expect(dialog.getByRole('option')).toHaveText(['English', 'German', 'Italian', 'Russian', 'Slovak', 'Ukrainian']);
+    await dialog.getByRole('option', { name: 'German' }).click();
     await dialog.getByLabel('Original phrase').fill(`Duplicate entry ${testInfo.project.name}`);
-    await dialog.getByLabel('Original language').selectOption('de');
     await dialog.getByLabel('Translation').fill('Duplicate translation');
     await dialog.getByRole('button', { name: 'Save phrase' }).click();
     await expect(dialog).toBeHidden();
@@ -79,7 +80,8 @@ test('edits all fields without changing entry order and retains changes after re
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Original phrase')).toHaveValue('Older phrase');
   await dialog.getByLabel('Original phrase').fill('  Updated\nphrase  ');
-  await dialog.getByLabel('Original language').selectOption('it');
+  await dialog.getByRole('button', { name: 'Original language' }).click();
+  await dialog.getByRole('option', { name: 'Italian' }).click();
   await dialog.getByLabel('Translation').fill('  Updated\ntranslation  ');
   await dialog.getByRole('button', { name: 'Save phrase' }).click();
   await expect(dialog).toBeHidden();
@@ -180,4 +182,25 @@ test('keyboard activation saves a dictionary entry and keeps button focus visibl
   await page.keyboard.press('Enter');
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('status').filter({ hasText: 'Phrase added' })).toBeVisible();
+});
+
+test('chooses original language by keyboard inside the entry dialog', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const dialog = page.getByRole('dialog');
+  const language = dialog.getByRole('button', { name: 'Original language' });
+  await language.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('option', { name: 'German' })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(language).toContainText('German');
+  await expect(language).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByRole('option', { name: 'German' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeVisible();
+  await expect(language).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 });

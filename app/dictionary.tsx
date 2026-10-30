@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { dictionaryEntrySchema, languages, phraseSchema } from '../lib/dictionary-entry';
 import { Button } from '../components/ui/button';
+import { Textarea } from '../components/ui/textarea';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select';
+import { Label } from 'react-aria-components';
+import { Pencil, Trash2 } from 'lucide-react';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
 import { evaluateMeaningMatch } from './meaning-match-actions';
@@ -13,6 +17,8 @@ type Fields = { original: string; language: string; translation: string };
 
 export default function Dictionary({ entries, jevConfigured }: { entries: Entry[]; jevConfigured: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const [dialogElement, setDialogElement] = useState<HTMLDialogElement | null>(null);
+  const setDialogRef = useCallback((element: HTMLDialogElement | null) => { dialog.current = element; setDialogElement(element); }, []);
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const [entryToDelete, setEntryToDelete] = useState<Entry | null>(null);
   const [deleteError, setDeleteError] = useState('');
@@ -231,8 +237,8 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         <p className="phrase font-bold">{entry.original}</p>
         <p>{languages.find(language => language.code === entry.language)?.name ?? entry.language}</p>
         <p className="phrase">{entry.translation}</p>
-        <Button type="button" aria-label="Edit phrase" title="Edit phrase" onPress={() => openDialog(entry)}><span aria-hidden="true">✎</span></Button>
-        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><span aria-hidden="true">🗑</span></Button>
+        <Button type="button" aria-label="Edit phrase" title="Edit phrase" onPress={() => openDialog(entry)}><Pencil aria-hidden="true" /></Button>
+        <Button type="button" aria-label="Delete phrase" title="Delete phrase" onPress={() => { setConfirmation(''); setDeleteError(''); setEntryToDelete(entry); deleteDialog.current?.showModal(); }}><Trash2 aria-hidden="true" /></Button>
       </article>)}
     </section>}
     <dialog ref={deleteDialog} aria-labelledby="delete-title" onCancel={event => { if (pending) event.preventDefault(); }}>
@@ -241,19 +247,20 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       {deleteError && <p role="alert">{deleteError}</p>}
       <div className="actions"><Button type="button" isDisabled={pending} onPress={() => deleteDialog.current?.close()}>Cancel</Button><Button type="button" isDisabled={pending} onPress={deleteEntry}>Delete</Button></div>
     </dialog>
-    <dialog ref={dialog} aria-labelledby="dialog-title" onCancel={event => { if (pending) event.preventDefault(); }}>
+    <dialog ref={setDialogRef} aria-labelledby="dialog-title" onCancel={event => { if (pending) event.preventDefault(); }}>
       <h2 id="dialog-title">{editingId === null ? 'Add phrase' : 'Edit phrase'}</h2>
       <form onSubmit={save} noValidate>
         <label htmlFor="original">Original phrase</label>
-        <textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
+        <Textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
         {errors.original && <p id="original-error" role="alert">{errors.original}</p>}
-        <label htmlFor="language">Original language</label>
-        <select id="language" value={fields.language} onChange={event => setFields({ ...fields, language: event.target.value })} aria-invalid={!!errors.language}>
-          {languages.map(language => <option key={language.code} value={language.code}>{language.name}</option>)}
-        </select>
+        <Select selectedKey={fields.language} onSelectionChange={key => setFields({ ...fields, language: String(key) })} isInvalid={!!errors.language}>
+          <Label>Original language</Label>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent portalContainer={dialogElement ?? undefined}>{languages.map(language => <SelectItem key={language.code} id={language.code}>{language.name}</SelectItem>)}</SelectContent>
+        </Select>
         {errors.language && <p role="alert">{errors.language}</p>}
         <label htmlFor="translation">Translation</label>
-        <textarea id="translation" value={fields.translation} onChange={event => setFields({ ...fields, translation: event.target.value })} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
+        <Textarea id="translation" value={fields.translation} onChange={event => setFields({ ...fields, translation: event.target.value })} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
         {errors.translation && <p id="translation-error" role="alert">{errors.translation}</p>}
         {error && <p role="alert">{error}</p>}
         <div className="actions"><Button type="button" isDisabled={pending} onPress={() => dialog.current?.close()}>Cancel</Button><Button type="submit" isDisabled={pending}>Save phrase</Button></div>

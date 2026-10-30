@@ -9,7 +9,8 @@ test('selects languages and practices each matching entry once with exact answer
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill(original);
-    await add.getByLabel('Original language').selectOption(language);
+    await add.getByRole('button', { name: 'Original language' }).click();
+    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
     await add.getByLabel('Translation').fill(translation);
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
@@ -48,7 +49,8 @@ test('loading failure preserves selected language and allows retry', async ({ pa
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill('Original');
-    await add.getByLabel('Original language').selectOption(language);
+    await add.getByRole('button', { name: 'Original language' }).click();
+    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
     await add.getByLabel('Translation').fill('Translation');
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
@@ -421,7 +423,8 @@ test('stale language selection does not start an empty session after another tab
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill(original);
-    await add.getByLabel('Original language').selectOption(language);
+    await add.getByRole('button', { name: 'Original language' }).click();
+    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
     await add.getByLabel('Translation').fill(translation);
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
@@ -478,7 +481,8 @@ test('language selection stays fixed while session entries load', async ({ page 
     await page.getByRole('button', { name: 'Add phrase' }).first().click();
     const add = page.getByRole('dialog');
     await add.getByLabel('Original phrase').fill(original);
-    await add.getByLabel('Original language').selectOption(language);
+    await add.getByRole('button', { name: 'Original language' }).click();
+    await add.getByRole('option', { name: language === 'en' ? 'English' : 'German' }).click();
     await add.getByLabel('Translation').fill(translation);
     await add.getByRole('button', { name: 'Save phrase' }).click();
     await expect(add).toBeHidden();
