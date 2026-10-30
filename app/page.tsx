@@ -2,12 +2,13 @@ import { desc } from 'drizzle-orm';
 import { getDatabase } from '../db';
 import { dictionaryEntries } from '../db/schema';
 import Dictionary from './dictionary';
+import DatabaseWarning from './database-warning';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const entries = await loadEntries();
-  if (!entries) return <main><h1>Dictionary</h1><p role="alert">Database is not ready. Start PostgreSQL, check DATABASE_URL, run pnpm db:migrate, and refresh.</p></main>;
+  if (!entries) return <main><h1>Dictionary</h1><DatabaseWarning /></main>;
   return <Dictionary entries={entries} jevConfigured={!!process.env.TYPESAFE_API_KEY?.trim()} />;
 }
 
