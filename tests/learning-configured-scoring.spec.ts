@@ -1,0 +1,62 @@
+import { expect, test } from './isolation/fixture';
+
+test('non-exact answer receives estimated meaning-match score', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Private translation');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  await page.getByLabel('Answer').fill('Greetings');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+  await expect(page.getByText('Greetings', { exact: true })).toBeVisible();
+});
+
+test('evaluation keeps submitted answer unchanged and prevents duplicate submissions', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add phrase' }).first().click();
+  const add = page.getByRole('dialog');
+  await add.getByLabel('Original phrase').fill('Hello');
+  await add.getByLabel('Translation').fill('Привіт');
+  await add.getByRole('button', { name: 'Save phrase' }).click();
+  await expect(add).toBeHidden();
+  await page.getByRole('button', { name: 'Start learning' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start session' }).click();
+  let release!: () => void;
+  let received!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const responseReceived = new Promise<void>(resolve => { received = resolve; });
+  let submissions = 0;
+  await page.route('**/', async route => {
+    if (route.request().method() !== 'POST') return route.continue();
+    submissions++;
+    const response = await route.fetch();
+    received();
+    await gate;
+    await route.fulfill({ response });
+  });
+  const answer = page.getByLabel('Answer');
+  await expect(page.getByText('Hello', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Translation')).toHaveCSS('font-weight', '400');
+  await answer.fill('Greetings');
+  await page.getByRole('button', { name: 'Submit answer' }).click();
+  await responseReceived;
+  await expect(page.getByText('Hello', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Evaluating…' })).toBeDisabled();
+  await expect(answer).toHaveValue('Greetings');
+  await expect(answer).toHaveAttribute('readonly', '');
+  await answer.press('Control+Enter');
+  await answer.evaluate(element => (element as HTMLTextAreaElement).form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  const exit = page.getByRole('button', { name: 'Exit session' });
+  await exit.focus();
+  release();
+  await expect(page.getByText('Estimated meaning-match score:')).toContainText('50%');
+  await expect(page.getByText('Hello', { exact: true })).toHaveCSS('font-weight', '700');
+  await expect(page.getByText('Greetings', { exact: true })).toHaveCSS('font-weight', '400');
+  await expect(exit).toBeFocused();
+  expect(submissions).toBe(1);
+});

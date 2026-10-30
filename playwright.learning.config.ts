@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   ...base,
-  testMatch: ['learning-configured.spec.ts', 'learning-error-toasts.spec.ts'],
+  testMatch: ['learning-configured-*.spec.ts', 'learning-error-toasts.spec.ts'],
   testIgnore: [],
   webServer: [
     { command: 'node tests/isolation/jev-substitute.mjs', url: 'http://127.0.0.1:3101/health', reuseExistingServer: false },
