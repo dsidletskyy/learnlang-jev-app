@@ -17,6 +17,8 @@ test('add and edit confirmations are brief and old timers cannot clear a newer c
   const added = notifications.getByRole('listitem').filter({ hasText: 'Phrase added.' });
   const updated = notifications.getByRole('listitem').filter({ hasText: 'Phrase updated.' });
   await expect(added).toBeVisible();
+  await expect(added).toHaveAttribute('data-type', 'success');
+  await expect(added.getByRole('button', { name: /close/i })).toHaveCount(0);
   await page.clock.fastForward(4000);
   await expect(added).toBeVisible();
 

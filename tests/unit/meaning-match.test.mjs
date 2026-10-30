@@ -40,11 +40,18 @@ test('meaning-match does not retry provider failures', async () => {
   assert.equal(attempts, 1);
 });
 
-test('meaning-match times out while provider response body stalls', async () => {
+test('meaning-match uses a 30-second timeout and rejects a stalled response body', async t => {
+  const timeout = AbortSignal.timeout;
+  const delays = [];
+  t.mock.method(AbortSignal, 'timeout', delay => {
+    delays.push(delay);
+    return timeout(20);
+  });
   const fetch = async () => new Response(new ReadableStream({ start() {} }), { headers: { 'content-type': 'application/json' } });
   const outcome = await Promise.race([
     scoreMeaningMatch({ original: 'A', answer: 'B', language: 'en' }, { apiKey: 'test', fetch }).then(() => 'success', () => 'failure'),
-    new Promise(resolve => setTimeout(() => resolve('still waiting'), 31000)),
+    new Promise(resolve => setTimeout(() => resolve('still waiting'), 1000)),
   ]);
   assert.equal(outcome, 'failure');
+  assert.deepEqual(delays, [30000]);
 });

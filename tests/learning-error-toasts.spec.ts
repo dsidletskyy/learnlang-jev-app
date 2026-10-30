@@ -1,7 +1,9 @@
 import { expect, test } from './isolation/fixture';
 
 test('learning loading failure shows toast inside modal and allows retry', async ({ page }) => {
+  await page.clock.install();
   await page.goto('/');
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.getByRole('button', { name: 'Add phrase' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Original phrase').fill('Learning load');
@@ -11,36 +13,26 @@ test('learning loading failure shows toast inside modal and allows retry', async
   await page.getByRole('button', { name: 'Start learning' }).click();
   await page.route('**/', route => route.request().method() === 'POST' ? route.abort() : route.continue());
   await dialog.getByRole('button', { name: 'Start session' }).click();
+  await page.clock.runFor(100);
   const notification = dialog.getByRole('listitem').filter({ hasText: 'Could not load entries.' });
   await expect(notification).toBeVisible();
   await expect(notification.getByRole('button', { name: /close/i })).toHaveCount(0);
-  await expect(notification).toHaveCount(0, { timeout: 6500 });
+  await page.clock.runFor(100);
+  await page.clock.fastForward(4000);
+  await expect(notification).toBeVisible();
+  await page.clock.fastForward(1500);
+  await page.clock.runFor(500);
+  await expect(notification).toBeHidden();
   await expect(dialog.getByRole('alert')).toContainText('Check the database and try again.');
   await page.unrouteAll();
   await dialog.getByRole('button', { name: 'Start session' }).click();
   await expect(page.getByLabel('Answer')).toBeVisible();
 });
 
-test('evaluation failure shows actionable toast and retains answer guidance', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Add phrase' }).first().click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Original phrase').fill('Learning answer');
-  await dialog.getByLabel('Translation').fill('Translation');
-  await dialog.getByRole('button', { name: 'Save phrase' }).click();
-  await expect(dialog).toBeHidden();
-  await page.getByRole('button', { name: 'Start learning' }).click();
-  await dialog.getByRole('button', { name: 'Start session' }).click();
-  await page.getByLabel('Answer').fill('Different answer');
-  await page.route('**/', route => route.request().method() === 'POST' ? route.abort() : route.continue());
-  await page.getByRole('button', { name: 'Submit answer' }).click();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Could not evaluate your answer.' })).toContainText('provider charge');
-  await expect(page.getByLabel('Answer')).toHaveValue('Different answer');
-  await expect(page.locator('#answer-error')).toContainText('provider charge');
-});
-
 test('provider recovery guidance survives editing after answer validation and toast expiry', async ({ page }) => {
+  await page.clock.install();
   await page.goto('/');
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   await page.getByRole('button', { name: 'Add phrase' }).first().click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Original phrase').fill('Learning answer');
@@ -55,11 +47,22 @@ test('provider recovery guidance survives editing after answer validation and to
   await answer.fill('Different answer');
   await page.route('**/', route => route.request().method() === 'POST' ? route.abort() : route.continue());
   await page.getByRole('button', { name: 'Submit answer' }).click();
+  await page.clock.runFor(100);
   const notification = page.getByRole('listitem').filter({ hasText: 'Could not evaluate your answer.' });
   await expect(notification).toBeVisible();
+  await expect(notification).toContainText('provider charge');
+  await expect(notification.getByRole('button', { name: /close/i })).toHaveCount(0);
+  await expect(answer).toHaveValue('Different answer');
+  await expect(page.locator('#answer-error')).toContainText('provider charge');
   await answer.fill('Edited answer');
+  await expect(answer).toHaveValue('Edited answer');
   await expect(notification).toBeVisible();
-  await expect(notification).toHaveCount(0, { timeout: 6500 });
+  await page.clock.runFor(100);
+  await page.clock.fastForward(4000);
+  await expect(notification).toBeVisible();
+  await page.clock.fastForward(1500);
+  await page.clock.runFor(500);
+  await expect(notification).toBeHidden();
   await expect(page.getByText('Could not evaluate your answer. Try again; another attempt may incur a provider charge.')).toBeVisible();
 });
 
