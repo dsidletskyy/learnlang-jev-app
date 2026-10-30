@@ -11,7 +11,10 @@ test('learning loading failure shows toast inside modal and allows retry', async
   await page.getByRole('button', { name: 'Start learning' }).click();
   await page.route('**/', route => route.request().method() === 'POST' ? route.abort() : route.continue());
   await dialog.getByRole('button', { name: 'Start session' }).click();
-  await expect(dialog.getByRole('listitem').filter({ hasText: 'Could not load entries.' })).toBeVisible();
+  const notification = dialog.getByRole('listitem').filter({ hasText: 'Could not load entries.' });
+  await expect(notification).toBeVisible();
+  await expect(notification.getByRole('button', { name: /close/i })).toHaveCount(0);
+  await expect(notification).toHaveCount(0, { timeout: 6500 });
   await expect(dialog.getByRole('alert')).toContainText('Check the database and try again.');
   await page.unrouteAll();
   await dialog.getByRole('button', { name: 'Start session' }).click();

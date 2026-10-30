@@ -3,6 +3,7 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 
 @theme inline {
+  --color-destructive: #dc2626;
   --color-primary: #3473a9;
   --color-primary-foreground: #ffffff;
   --color-ring: #3473a9;

@@ -9,7 +9,6 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Label } from 'react-aria-components';
 import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { persistentToastOptions } from '../lib/toast-options';
 import { addDictionaryEntry, editDictionaryEntry, deleteDictionaryEntry } from './dictionary-actions';
 import { loadSessionEntries } from './learning-actions';
 import { evaluateMeaningMatch } from './meaning-match-actions';
@@ -18,7 +17,7 @@ type Entry = { id: number; original: string; language: string; translation: stri
 type Fields = { original: string; language: string; translation: string };
 
 function showErrorToast(message: string) {
-  toast.error(message, { ...persistentToastOptions, richColors: true });
+  toast.error(message, { richColors: true });
 }
 
 export default function Dictionary({ entries, jevConfigured }: { entries: Entry[]; jevConfigured: boolean }) {
@@ -131,6 +130,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
   const [fields, setFields] = useState<Fields>({ original: '', language: 'en', translation: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [error, setError] = useState('');
+  const [validationAttempted, setValidationAttempted] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -138,8 +138,17 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     setEditingId(entry?.id ?? null);
     setFields(entry ? { original: entry.original, language: entry.language, translation: entry.translation } : { original: '', language: 'en', translation: '' });
     setErrors({});
+    setValidationAttempted(false);
     setError('');
     dialog.current?.showModal();
+  }
+
+  function updateField(field: keyof Fields, value: string) {
+    setFields(current => ({ ...current, [field]: value }));
+    if (validationAttempted) {
+      const parsed = dictionaryEntrySchema.shape[field].safeParse(value);
+      setErrors(current => ({ ...current, [field]: parsed.success ? undefined : parsed.error.issues[0].message }));
+    }
   }
 
   function save(event: React.FormEvent<HTMLFormElement>) {
@@ -148,7 +157,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     if (!parsed.success) {
       const fieldErrors = parsed.error.flatten().fieldErrors;
       setErrors({ original: fieldErrors.original?.[0], language: fieldErrors.language?.[0], translation: fieldErrors.translation?.[0] });
-      showErrorToast('Check the highlighted fields and try again.');
+      setValidationAttempted(true);
       return;
     }
     setErrors({});
@@ -228,7 +237,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     <h1>Dictionary</h1>
     <div className="button-row">
       {entries.length > 0 && <Button onPress={() => openDialog()}>Add phrase</Button>}
-      <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); if (!jevConfigured && !learningWarningShown.current) { learningWarningShown.current = true; toast.error('Learning provider is not configured.', { ...persistentToastOptions, id: 'learning-setup-warning' }); } }}>Start learning</Button>
+      <Button isDisabled={!entries.length} onPress={() => { setSelectedLanguage(availableLanguages[0]?.code ?? ''); setLearningError(''); learningDialog?.showModal(); if (!jevConfigured && !learningWarningShown.current) { learningWarningShown.current = true; toast.error('Learning provider is not configured.', { id: 'learning-setup-warning' }); } }}>Start learning</Button>
     </div>
     <dialog ref={setLearningDialog} aria-labelledby="learning-title" onCancel={event => { if (loading) event.preventDefault(); }}>
       <h2 id="learning-title">Start learning</h2>
@@ -268,22 +277,22 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
       <form onSubmit={save} noValidate>
         <div className="phrase-fields">
           <div className="phrase-field">
-            <label htmlFor="original">Original phrase</label>
-            <Textarea id="original" value={fields.original} onChange={event => setFields({ ...fields, original: event.target.value })} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
-            {errors.original && <p id="original-error" role="alert">{errors.original}</p>}
+            <label htmlFor="original" className={errors.original ? "text-destructive" : undefined}>Original phrase</label>
+            <Textarea id="original" value={fields.original} onChange={event => updateField('original', event.target.value)} aria-invalid={!!errors.original} aria-describedby={errors.original ? 'original-error' : undefined} />
+            {errors.original && <p id="original-error" className="text-destructive text-sm" role="alert">{errors.original}</p>}
           </div>
           <div className="phrase-field">
-            <Select selectedKey={fields.language} onSelectionChange={key => setFields({ ...fields, language: String(key) })} isInvalid={!!errors.language}>
-              <Label>Original language</Label>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Select selectedKey={fields.language} onSelectionChange={key => updateField('language', String(key))} isInvalid={!!errors.language}>
+              <Label className={errors.language ? "text-destructive" : undefined}>Original language</Label>
+              <SelectTrigger aria-describedby={errors.language ? "language-error" : undefined} className={errors.language ? "border-destructive" : undefined}><SelectValue /></SelectTrigger>
               <SelectContent portalContainer={dialogElement ?? undefined}>{languages.map(language => <SelectItem key={language.code} id={language.code}>{language.name}</SelectItem>)}</SelectContent>
             </Select>
-            {errors.language && <p role="alert">{errors.language}</p>}
+            {errors.language && <p id="language-error" className="text-destructive text-sm" role="alert">{errors.language}</p>}
           </div>
           <div className="phrase-field">
-            <label htmlFor="translation">Translation</label>
-            <Textarea id="translation" value={fields.translation} onChange={event => setFields({ ...fields, translation: event.target.value })} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
-            {errors.translation && <p id="translation-error" role="alert">{errors.translation}</p>}
+            <label htmlFor="translation" className={errors.translation ? "text-destructive" : undefined}>Translation</label>
+            <Textarea id="translation" value={fields.translation} onChange={event => updateField('translation', event.target.value)} aria-invalid={!!errors.translation} aria-describedby={errors.translation ? 'translation-error' : undefined} />
+            {errors.translation && <p id="translation-error" className="text-destructive text-sm" role="alert">{errors.translation}</p>}
           </div>
         </div>
         {error && <p role="alert">{error}</p>}
