@@ -16,8 +16,6 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:3100' },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: [
     { command: 'node tests/isolation/jev-substitute.mjs', url: 'http://127.0.0.1:3101/health', reuseExistingServer: false },

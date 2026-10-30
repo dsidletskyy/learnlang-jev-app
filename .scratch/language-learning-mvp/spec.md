@@ -84,10 +84,10 @@ Exact matches are scored locally. For other answers, Jev receives the original p
 
 - Keep the app and database accessible only from the local computer, with basic safeguards against state-changing requests from other websites. Review app binding, PostgreSQL published-port binding, and request protections including any route handlers; no dedicated automated security checks are required. Avoid authentication and complex security infrastructure.
 - Defer dictionary backup and restore; persistent Docker storage is not a backup.
-- Target current major desktop browsers. Narrow-screen layouts remain required, but mobile browsers are not separate release targets.
+- Chromium is the sole supported browser target. Narrow-screen layouts remain required, but mobile browsers are not separate release targets.
 - Use one Next.js App Router application; database access, Jev calls, and the API key remain server-side. Do not add a separate backend service.
 - Use Drizzle ORM and Drizzle Kit for PostgreSQL access and versioned migrations.
-- Use Playwright as the primary browser test framework, covering Chromium, Firefox, and WebKit. WebKit is not identical to branded Safari.
+- Use Playwright as the primary browser test framework, covering Chromium only. Chromium results do not establish support for other Chromium-based browsers or automated accessibility conformance.
 - Keep each learning session in browser memory. Tabs have independent sessions and snapshots; they do not synchronize.
 - Allow confirmed session exit during evaluation immediately. Cancel the request where practical and ignore any late result; provider processing or charges may still occur.
 - Apply database migrations through an explicit setup/update command, not automatically on app startup. Document the command and surface a clear error if the database is not ready.

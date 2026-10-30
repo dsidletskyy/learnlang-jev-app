@@ -32,11 +32,11 @@ Open http://127.0.0.1:3000, add a phrase, and refresh to see it retained. Start 
 - Docker unavailable: start Docker and retry `docker compose up -d --wait`; check its output and that port 54329 is free.
 - Database not ready or migration fails: check Docker status and `.env`, then run `pnpm db:migrate` and refresh. Changing `POSTGRES_PASSWORD` does not change credentials in an existing volume; restore the original password rather than deleting data.
 - Missing Jev configuration: set `TYPESAFE_API_KEY` in `.env` and restart Next.js. Dictionary use remains available without it. An invalid key is reported when a non-exact answer is evaluated.
-- Missing browser binaries during tests: run `pnpm exec playwright install chromium firefox webkit`; on Linux consult `pnpm exec playwright install --help` for system dependencies.
+- Missing browser binaries during tests: run `pnpm exec playwright install chromium`; on Linux consult `pnpm exec playwright install --help` for system dependencies.
 
 ## Checks
 
-Tests use a dedicated test container, volume, credentials and port, never the personal database. Start Docker, install all three Playwright browsers as above, and run:
+Tests use a dedicated test container, volume, credentials and port, never the personal database. Start Docker, install Playwright Chromium as above, and run:
 
 ```sh
 docker compose -f compose.test.yaml up -d --wait
@@ -56,7 +56,7 @@ pnpm test
 pnpm test:database
 ```
 
-`pnpm test` runs Chromium, Firefox and WebKit browser suites, including a database-unavailable recovery suite. Browser tests reset the dedicated database after checking its container, volume, connection and database identity. `pnpm test:database` migrates and writes to the dedicated database and recreates only its container to check persistence. Run database-resetting suites serially, not concurrently. Ensure ports 3100, 3101 and 55432 are free. No live Jev key is required: tests use a loopback substitute, with outbound connections blocked in the test app; invalid substitute configuration fails closed.
+`pnpm test` runs Chromium browser suites, including keyboard, responsive and database-unavailable recovery checks. Chromium is the sole supported browser target; these results do not establish support for other Chromium-based browsers or accessibility conformance. Browser tests reset the dedicated database after checking its container, volume, connection and database identity. `pnpm test:database` migrates and writes to the dedicated database and recreates only its container to check persistence. Run database-resetting suites serially, not concurrently. Ensure ports 3100, 3101 and 55432 are free. No live Jev key is required: tests use a loopback substitute, with outbound connections blocked in the test app; invalid substitute configuration fails closed.
 
 Stop or remove **only** test resources with:
 
