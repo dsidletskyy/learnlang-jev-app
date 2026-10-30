@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator } from './isolation/fixture';
 
 async function verticalGap(upper: Locator, lower: Locator) {
   const a = await upper.boundingBox();

@@ -4,7 +4,7 @@ A local, single-user dictionary and learning app. PostgreSQL runs in Docker; Nex
 
 ## Quickstart
 
-Prerequisites: Node.js 24 LTS (see `.nvmrc`), Corepack, and Docker with Compose. Start Docker. With nvm, run `nvm install && nvm use`; check `node --version` is 24.x. Then install dependencies and create local configuration:
+Prerequisites: Node.js 24 LTS (see `.nvmrc`), Corepack, Python 3, and Docker with Compose. Start Docker. With nvm, run `nvm install && nvm use`; check `node --version` is 24.x. Then install dependencies and create local configuration:
 
 ```sh
 corepack enable
@@ -56,7 +56,7 @@ pnpm test
 pnpm test:database
 ```
 
-`pnpm test` runs Chromium, Firefox and WebKit browser suites, including a database-unavailable recovery suite. Browser tests reset the dedicated database after checking its container, volume, connection and database identity. `pnpm test:database` migrates and writes to the dedicated database and recreates only its container to check persistence. Run database-resetting suites serially, not concurrently. Ensure ports 3100, 3101 and 55432 are free. No live Jev key is required: tests use a loopback substitute, with outbound connections blocked in the test app; invalid substitute configuration fails closed.
+`pnpm test` runs Chromium, Firefox and WebKit browser suites, including a database-unavailable recovery suite. Browser tests migrate once per suite and reset before each test and retry, after checking the dedicated container, volume, connection and database identity. `pnpm test:database` migrates and writes to the dedicated database and recreates only its container to check persistence. `pnpm check`, `pnpm test`, and `pnpm test:database` share a fail-fast lock: stop any conflicting command and retry. Direct Playwright invocations and manual database access bypass this protection and must not run concurrently with these commands. Ensure ports 3100, 3101 and 55432 are free. No live Jev key is required: tests use a loopback substitute, with outbound connections blocked in the test app; invalid substitute configuration fails closed.
 
 Stop or remove **only** test resources with:
 

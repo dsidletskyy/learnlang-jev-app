@@ -1,12 +1,10 @@
-import { expect, test, type Locator } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
+import { expect, test, type Locator } from './isolation/fixture';
 
 async function selectOriginalLanguage(dialog: Locator, language: string) {
   await dialog.getByRole('button', { name: 'Original language' }).click();
   await dialog.getByRole('option', { name: language }).click();
 }
 
-test.beforeEach(() => { execFileSync('node', ['tests/isolation/reset.mjs'], { stdio: 'pipe' }); });
 
 test('selects languages and practices each matching entry once with exact answers', async ({ page }) => {
   await page.goto('/');

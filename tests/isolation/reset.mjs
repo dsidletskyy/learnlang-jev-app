@@ -21,8 +21,11 @@ try {
   if (rows.length !== 1 || rows[0].db !== 'language_test' || rows[0].username !== 'language_test') {
     throw new Error('Connected database is not the dedicated test target');
   }
-  execFileSync('pnpm', ['db:migrate'], { stdio: 'inherit', env: { ...process.env, DATABASE_URL: testUrl } });
-  await client.query('truncate table database_ready, dictionary_entries restart identity');
+  if (process.argv[2] === '--migrate') {
+    execFileSync('pnpm', ['db:migrate'], { stdio: 'inherit', env: { ...process.env, DATABASE_URL: testUrl } });
+  } else {
+    await client.query('truncate table public.database_ready, public.dictionary_entries restart identity');
+  }
 } finally {
   await client.end();
 }

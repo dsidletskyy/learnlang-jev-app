@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('keyboard dialogs restore focus and narrow dictionary wraps long content', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 320, height: 700 });

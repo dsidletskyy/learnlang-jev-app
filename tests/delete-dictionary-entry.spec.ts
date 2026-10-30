@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('confirms the original phrase and cancellation preserves the entry', async ({ page }, testInfo) => {
   const phrase = `Keep this phrase ${testInfo.project.name}`;

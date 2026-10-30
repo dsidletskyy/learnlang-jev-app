@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('missing Jev key blocks learning with configuration guidance', async ({ page }) => {
   await page.goto('/');

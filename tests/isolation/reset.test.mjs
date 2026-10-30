@@ -41,3 +41,13 @@ test('reset refuses an unrecognized container before connecting', () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unrecognized dedicated test container/);
 });
+
+test('database integration independently refuses missing and personal database URLs', () => {
+  for (const url of ['', 'postgresql://language_learning:password@127.0.0.1:54329/language_learning']) {
+    const result = spawnSync(process.execPath, ['tests/integration/database.mjs'], {
+      env: { ...process.env, TEST_DATABASE_URL: url }, encoding: 'utf8',
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /TEST_DATABASE_URL must explicitly match the dedicated test database/);
+  }
+});

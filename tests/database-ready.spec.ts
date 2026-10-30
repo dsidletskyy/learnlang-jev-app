@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('home connects to the isolated test database', async ({ page }) => {
   await page.goto('/');

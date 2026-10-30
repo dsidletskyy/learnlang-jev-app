@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('dictionary validation appears on save and updates as fields are corrected', async ({ page }) => {
   await page.goto('/');

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('adds a multiline dictionary entry and retains it after reload', async ({ page }, testInfo) => {
   await page.goto('/');

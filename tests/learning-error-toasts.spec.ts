@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('learning loading failure shows toast inside modal and allows retry', async ({ page }) => {
   await page.goto('/');

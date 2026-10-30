@@ -1,9 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { expect, test } from '@playwright/test';
-
-test.beforeEach(() => {
-  execFileSync('node', ['tests/isolation/reset.mjs'], { stdio: 'pipe' });
-});
+import { expect, test } from './isolation/fixture';
 
 test('empty dictionary welcomes learner with an add action', async ({ page }) => {
   await page.goto('/');

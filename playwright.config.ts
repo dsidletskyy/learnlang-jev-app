@@ -22,7 +22,7 @@ export default defineConfig({
   webServer: [
     { command: 'node tests/isolation/jev-substitute.mjs', url: 'http://127.0.0.1:3101/health', reuseExistingServer: false },
     {
-      command: 'node tests/isolation/reset.mjs && pnpm exec next dev --webpack --hostname 127.0.0.1 --port 3100',
+      command: 'node tests/isolation/reset.mjs --migrate && pnpm exec next dev --webpack --hostname 127.0.0.1 --port 3100',
       url: 'http://127.0.0.1:3100',
       reuseExistingServer: false,
       env: { DATABASE_URL: testUrl, JEV_TEST_URL: 'http://127.0.0.1:3101', TYPESAFE_API_KEY: '', NODE_OPTIONS: '--require=./tests/isolation/network-guard.cjs' },

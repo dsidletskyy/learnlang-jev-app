@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('home shows dictionary without development scaffold', async ({ page }) => {
   await page.goto('/');

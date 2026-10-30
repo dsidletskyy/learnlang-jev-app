@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './isolation/fixture';
 
 test('add and edit confirmations are brief and old timers cannot clear a newer confirmation', async ({ page }, testInfo) => {
   await page.clock.install();

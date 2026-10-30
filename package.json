@@ -12,10 +12,10 @@
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "playwright test && playwright test --config=playwright.learning.config.ts && playwright test --config=playwright.unavailable.config.ts",
-    "check": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:isolation && pnpm test && pnpm test:database",
+    "test": "python3 scripts/test-lock.py sh scripts/test-browser.sh",
+    "check": "python3 scripts/test-lock.py sh scripts/check.sh",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
-    "test:database": "node tests/integration/database.mjs",
+    "test:database": "python3 scripts/test-lock.py node tests/integration/database.mjs",
     "test:isolation": "node --test tests/isolation/*.test.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs"
   },
