@@ -225,9 +225,9 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
         <div role="textbox" aria-readonly="true" aria-labelledby="prompt-label" className="phrase">{entry.translation}</div>
         {feedback !== null ? <><p>Estimated meaning-match score: <strong>{feedback}%</strong></p><p>Answer</p><p className="phrase">{answer}</p><p>Original phrase</p><p className="phrase font-bold">{entry.original}</p><Button ref={nextRef} onPress={() => { setReviews([...reviews, { entry, answer, score: feedback }]); setPosition(position + 1); setAnswer(''); setAnswerError(''); setAnswerValidationStarted(false); setFeedback(null); }}>Next</Button></> :
           <form onSubmit={submitAnswer} noValidate>
-            <label htmlFor="answer">Answer</label>
-            <Textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => { const value = event.target.value; setAnswer(value); if (answerValidationStarted) { const parsed = phraseSchema.safeParse(value); setAnswerError(parsed.success ? '' : parsed.error.issues[0].message); } }} className="aria-invalid:border-[#dc2626] aria-invalid:ring-[#dc2626]/20" onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
-            {answerError && <p id="answer-error" role="alert" className="text-[#dc2626]">{answerError}</p>}
+            <label htmlFor="answer" className={answerError ? "text-destructive" : undefined}>Answer</label>
+            <Textarea ref={answerRef} id="answer" readOnly={evaluating} value={answer} onChange={event => { const value = event.target.value; setAnswer(value); if (answerValidationStarted) { const parsed = phraseSchema.safeParse(value); setAnswerError(parsed.success ? '' : parsed.error.issues[0].message); } }} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-invalid={!!answerError} aria-describedby={answerError ? 'answer-error' : undefined} />
+            {answerError && <p id="answer-error" role="alert" className="text-destructive text-sm">{answerError}</p>}
             <div className="actions"><Button type="submit" ref={submitRef} isDisabled={evaluating}>{evaluating ? 'Evaluating…' : 'Submit answer'}</Button></div>
           </form>}
       </article>
