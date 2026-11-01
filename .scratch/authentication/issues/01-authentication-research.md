@@ -1,7 +1,7 @@
 # Research authentication approaches and security guidance
 
 Type: research
-Status: open
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -10,4 +10,8 @@ What current first-party and standards-based guidance and maintained authenticat
 
 ## Context pointer
 
-Research asset expected on branch `research/local-authentication`, not merged.
+[Research findings](https://github.com/dsidletskyy/learnlang-jev-app/blob/ef2b5f8/docs/research/local-authentication.md) on branch `research/local-authentication`, not merged.
+
+## Answer
+
+Better Auth provides integrated password, verification, reset and session features; Auth.js Credentials requires more application-owned lifecycle work and documents JWT-only sessions for that provider. Supabase Auth is a separate service; custom authentication leaves security design to the application. Mailpit can capture local authentication email. Compare operational and data-ownership trade-offs before choosing. Exact integration and security behavior require validation against pinned versions; NIST and OWASP reset guidance was checked only through primary-source search snippets.

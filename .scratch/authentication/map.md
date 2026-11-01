@@ -10,9 +10,11 @@ Current stack: Next.js 16, React 19, PostgreSQL, Drizzle. Open registration; mes
 
 ## Decisions so far
 
+- [Research authentication approaches and security guidance](issues/01-authentication-research.md): Compared authentication approaches, security guidance and local email capture.
+- [Choose authentication approach](issues/02-authentication-approach.md): Use Better Auth, subject to compatibility validation.
+
 ## Not yet specified
 
-- Detailed authentication and session controls depend on the selected approach and research.
 - Verification, recovery, delivery, and failure behavior need to be specified in light of local mail access and the chosen provider.
 - Implementation handoff, testing, and operational safeguards depend on the architecture and migration decisions.
 
