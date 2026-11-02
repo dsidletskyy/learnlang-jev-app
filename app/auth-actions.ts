@@ -1,13 +1,17 @@
 'use server';
 
 import { cookies, headers } from 'next/headers';
+import { sendPasswordRecoveryMail } from '../lib/password-recovery-mail';
+import { completePasswordRecovery, requestPasswordRecovery, withIdentifierLock } from '../lib/password-recovery';
+import { recoveryAcknowledgment, validateResetPassword } from '../lib/password-recovery-policy';
 import { eq } from 'drizzle-orm';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { session } from '../db/schema';
 import { redirect } from 'next/navigation';
 import { getDatabase, getPool } from '../db';
 import { createLocalAuth, validatedSession } from '../lib/auth';
 import { checkPasswordBlocklist } from '../lib/auth-password-blocklist';
-import { consumeIdentifierAttempt, type AuthLimitOperation } from '../lib/auth-identifier-rate-limit';
+import { consumeIdentifierAttempt, consumeRecoveryAttempt, type AuthLimitOperation } from '../lib/auth-identifier-rate-limit';
 import { register, signIn } from '../lib/auth-entry-policy';
 import { revokeCurrentSession } from '../lib/sign-out';
 import { sessionCookieOptions } from '../lib/session-cookie';
@@ -16,8 +20,8 @@ import { resendVerification } from '../lib/verification-resend';
 const genericSignIn = 'Unable to sign in. Check your details and verification, then try again.';
 const registrationAcknowledgment = 'If registration can be completed, a verification link will be sent to the local inbox.';
 
-async function providerRequest(path: string, body?: object, cookie?: string) {
-  const auth = createLocalAuth(await getDatabase());
+async function providerRequest(path: string, body?: object, cookie?: string, db?: NodePgDatabase) {
+  const auth = createLocalAuth(db ?? await getDatabase());
   const origin = new URL(process.env.BETTER_AUTH_URL!).origin;
   return auth.handler(new Request(`${origin}/api/auth/${path}`, {
     method: 'POST', headers: { origin, 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
@@ -47,7 +51,7 @@ export async function registerAction(_state: string, form: FormData): Promise<st
 export async function signInAction(_state: string, form: FormData): Promise<string> {
   const input = credentials(form);
   const success = await signIn(input, dependencies(input, 'sign-in', async () => {
-    const response = await providerRequest('sign-in/email', input);
+    const response = await withIdentifierLock(getPool(), input.email, client => providerRequest('sign-in/email', input, undefined, drizzle(client)));
     if (!response.ok) return false;
     const sessionCookie = response.headers.getSetCookie().find(value => /^(?:__Secure-)?better-auth\.session_token=/.test(value));
     if (!sessionCookie) return false;
@@ -99,4 +103,39 @@ export async function resendVerificationAction(_state: string, form: FormData): 
     send: async () => (await providerRequest('send-verification-email', { email })).ok,
     log: message => console.error(message),
   });
+}
+
+export async function requestRecoveryAction(_state: string, form: FormData): Promise<string> {
+  const email = String(form.get('email') ?? '');
+  return recoveryAcknowledgment(async () => {
+    const client = await getPool().connect();
+    let broken = true;
+    try {
+      if (await consumeRecoveryAttempt(client, email)) {
+        const baseURL = process.env.BETTER_AUTH_URL!;
+        const origin = new URL(baseURL);
+        if (!['http:', 'https:'].includes(origin.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname) || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Invalid auth origin');
+        const port = Number(process.env.AUTH_SMTP_PORT ?? '1025');
+        if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMTP port');
+        await requestPasswordRecovery(client, email, origin.origin, async (recipient, url) => {
+          await sendPasswordRecoveryMail(port, recipient, url);
+        });
+      }
+      broken = false;
+    } finally { client.release(broken); }
+  });
+}
+
+export async function resetPasswordAction(_state: string, form: FormData): Promise<string> {
+  const token = String(form.get('token') ?? '');
+  const password = String(form.get('password') ?? '');
+  const confirmation = String(form.get('confirmation') ?? '');
+  const valid = await validateResetPassword(password, confirmation, checkPasswordBlocklist);
+  if (valid === 'password') return 'Choose a password of 12–1024 characters that is not common or compromised.';
+  if (valid === 'confirmation') return 'Passwords do not match.';
+  if (valid === 'retry') return 'Password reset is temporarily unavailable. Please try again later.';
+  try {
+    if (!await completePasswordRecovery(getPool(), token, password)) return 'This link is invalid or expired. Request another recovery link.';
+  } catch { return 'Password reset could not be completed. Please try again later.'; }
+  return 'Password reset complete. Sign in manually to continue.';
 }

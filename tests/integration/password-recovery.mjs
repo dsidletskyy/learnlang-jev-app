@@ -1,0 +1,101 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { test } from 'node:test';
+import pg from 'pg';
+import { verifyPassword } from 'better-auth/crypto';
+import { requestPasswordRecovery, completePasswordRecovery } from '../../lib/password-recovery.ts';
+
+const testUrl = 'postgresql://language_test:language_test_password@127.0.0.1:55432/language_test';
+test('recovery supersedes, expires, rolls back failures, revokes sessions and preserves verification', async () => {
+  assert.equal(process.env.TEST_DATABASE_URL, testUrl);
+  const admin = new pg.Client({ connectionString: testUrl });
+  await admin.connect();
+  const namespace = `recovery_${randomUUID().replaceAll('-', '')}`;
+  await admin.query(`create schema "${namespace}"`);
+  const pool = new pg.Pool({ connectionString: testUrl, options: `-c search_path=${namespace}` });
+  try {
+    await pool.query((await readFile('drizzle/0003_better_auth.sql', 'utf8')).replaceAll('"public".', `"${namespace}".`));
+    await pool.query(await readFile('drizzle/0005_password_recovery.sql', 'utf8'));
+    await pool.query(`insert into "user" (id, name, email, email_verified) values ('u', 'User', 'person@example.com', false)`);
+    await pool.query(`insert into account (id, account_id, provider_id, user_id, password) values ('a', 'u', 'credential', 'u', 'old')`);
+    await pool.query(`insert into session (id, user_id, token, expires_at) values ('s', 'u', 'token', now() + interval '1 day')`);
+    const links = [];
+    const request = (send = async (_, url) => links.push(url)) => requestPasswordRecovery(pool, 'Person@example.com', 'http://localhost:3000', send);
+    const token = () => new URL(links.at(-1)).searchParams.get('token');
+    let visibleDuringDelivery;
+    await request(async (_, url) => {
+      const current = new URL(url).searchParams.get('token');
+      visibleDuringDelivery = (await pool.query("select 1 from password_recovery where token_hash = encode(sha256($1::bytea), 'hex')", [current])).rowCount;
+    });
+    assert.equal(visibleDuringDelivery, 1, 'token must be committed before delivery');
+    await pool.query(`create function fail_issuance_commit() returns trigger language plpgsql as $$ begin raise exception 'commit failure'; end $$;
+      create constraint trigger fail_issuance after insert or update on password_recovery deferrable initially deferred for each row execute function fail_issuance_commit()`);
+    let deliveredAfterFailure = false;
+    await assert.rejects(request(async () => { deliveredAfterFailure = true; }));
+    assert.equal(deliveredAfterFailure, false, 'failed commit must not send a link');
+    await pool.query('drop trigger fail_issuance on password_recovery');
+    let releaseDelivery, reportLink;
+    const deliveryEntered = new Promise(resolve => { reportLink = resolve; });
+    const holdDelivery = new Promise(resolve => { releaseDelivery = resolve; });
+    const inFlight = request(async (_, url) => { reportLink(url); await holdDelivery; });
+    const deliveredLink = await deliveryEntered;
+    try {
+      assert.equal(await completePasswordRecovery(pool, new URL(deliveredLink).searchParams.get('token'), 'a new unusual passphrase'), true);
+    } finally {
+      releaseDelivery();
+      await inFlight;
+    }
+    await pool.query("update account set password = 'old'");
+    await pool.query("insert into session (id, user_id, token, expires_at) values ('s', 'u', 'token', now() + interval '1 day')");
+    await request(); const first = token();
+    await request(); const second = token();
+    assert.equal(await completePasswordRecovery(pool, first, 'a new unusual passphrase'), false);
+    await pool.query("update password_recovery set expires_at = now() - interval '1 second'");
+    assert.equal(await completePasswordRecovery(pool, second, 'a new unusual passphrase'), false);
+    await request(); const third = token();
+    await pool.query(`create function fail_session_delete() returns trigger language plpgsql as $$ begin raise exception 'injected'; end $$; create trigger fail_delete before delete on session for each row execute function fail_session_delete()`);
+    await assert.rejects(completePasswordRecovery(pool, third, 'a new unusual passphrase'));
+    assert.equal((await pool.query('select password from account')).rows[0].password, 'old');
+    assert.equal((await pool.query('select count(*)::int n from password_recovery')).rows[0].n, 1);
+    await pool.query('drop trigger fail_delete on session');
+    assert.equal(await completePasswordRecovery(pool, third, 'a new unusual passphrase'), true);
+    assert.equal(await completePasswordRecovery(pool, third, 'another unusual passphrase'), false);
+    assert.equal((await pool.query('select count(*)::int n from session')).rows[0].n, 0);
+    assert.equal((await pool.query('select email_verified from "user"')).rows[0].email_verified, false);
+    assert.equal(await verifyPassword({ password: 'a new unusual passphrase', hash: (await pool.query('select password from account')).rows[0].password }), true);
+    await request(); const fourth = token();
+    const originalError = console.error; const errors = []; console.error = (...args) => errors.push(args.join(' '));
+    try { await request(async () => { throw Error('secret'); }); } finally { console.error = originalError; }
+    assert.deepEqual(errors, ['Password recovery email delivery failed']);
+    assert.equal(await completePasswordRecovery(pool, fourth, 'another unusual passphrase'), false);
+    await request(); assert.equal(await completePasswordRecovery(pool, token(), 'another unusual passphrase'), true);
+    await pool.query('update "user" set email_verified = true');
+    let releaseFirst, firstStarted;
+    const entered = new Promise(resolve => { firstStarted = resolve; });
+    const release = new Promise(resolve => { releaseFirst = resolve; });
+    const ordered = [];
+    const firstDelivery = request(async (_, url) => { firstStarted(); await release; ordered.push(url); });
+    await entered;
+    const secondDelivery = request(async (_, url) => ordered.push(url));
+    const deadline = Date.now() + 5000;
+    let blocked = false;
+    while (Date.now() < deadline) {
+      blocked = (await pool.query("select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%pg_advisory_lock(hashtextextended%'")).rowCount > 0;
+      if (blocked) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(blocked, true);
+    assert.equal(ordered.length, 0);
+    releaseFirst();
+    await Promise.all([firstDelivery, secondDelivery]);
+    assert.equal(ordered.length, 2);
+    assert.equal(await completePasswordRecovery(pool, new URL(ordered[0]).searchParams.get('token'), 'yet another uncommon passphrase'), false);
+    assert.equal(await completePasswordRecovery(pool, new URL(ordered[1]).searchParams.get('token'), 'yet another uncommon passphrase'), true);
+    const concurrent = [];
+    await Promise.all(Array.from({ length: 6 }, () => request(async (_, url) => concurrent.push(new URL(url).searchParams.get('token')))));
+    const outcomes = await Promise.all(concurrent.map(link => completePasswordRecovery(pool, link, 'yet another uncommon passphrase')));
+    assert.equal(outcomes.filter(Boolean).length, 1);
+    assert.equal((await pool.query('select email_verified from "user"')).rows[0].email_verified, true);
+  } finally { await pool.end(); await admin.query(`drop schema "${namespace}" cascade`); await admin.end(); }
+});

@@ -36,6 +36,13 @@
       "when": 1793628841624,
       "tag": "0004_auth_identifier_rate_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793628841625,
+      "tag": "0005_password_recovery",
+      "breakpoints": true
     }
   ]
 }
