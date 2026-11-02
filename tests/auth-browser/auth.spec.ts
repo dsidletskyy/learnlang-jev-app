@@ -37,6 +37,9 @@ test('registration, verification, sign-in and server-side sign-out', async ({ pa
     await expect(page).toHaveURL(/\/sign-in/);
     await page.goto('/');
     await expect(page).toHaveURL(/\/sign-in/);
+    await page.context().addCookies([cookie!]);
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/sign-in/);
     expect((await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [email])).rows[0].count).toBe(0);
   } finally {
     await pool.query('delete from "user" where email = $1', [email]);

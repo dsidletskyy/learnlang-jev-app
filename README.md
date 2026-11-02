@@ -1,6 +1,6 @@
 # Language Learning
 
-A local, single-user dictionary and learning app. PostgreSQL runs in Docker; Next.js runs on your computer. Keep both local: there is no authentication. Revisit access controls before any remote deployment. Non-exact answers are sent to TypeSafe Jev for scoring; exact matches are scored locally.
+A local dictionary and learning app with verified accounts and private dictionaries. PostgreSQL runs in Docker; Next.js runs on your computer. Keep both local: anyone with machine, database, or shared inbox access can bypass account privacy. This is not designed for remote deployment. Non-exact answers are sent to TypeSafe Jev for scoring; exact matches are scored locally.
 
 ## Quickstart
 
@@ -23,7 +23,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://127.0.0.1:3000, add a phrase, and refresh to see it retained. Start learning after configuring Jev. App startup never runs migrations; run `pnpm db:migrate` after updates too. For local production mode, run `pnpm build` and `pnpm start`.
+Set `BETTER_AUTH_URL` and a secret of at least 32 characters in `.env`. Open http://127.0.0.1:3000, register, verify using the shared local inbox, and sign in. Add a phrase and refresh to see it retained. Legacy entries remain unowned and hidden. Start learning after configuring Jev. App startup never runs migrations; run `pnpm db:migrate` after updates too. For local production mode, run `pnpm build` and `pnpm start`.
 
 Compose also starts a local Mailpit inbox at http://127.0.0.1:8025, with SMTP on 127.0.0.1:1025. Registration sends verification links to this shared inbox. Verification proves shared inbox access, not external mailbox ownership. Anyone with inbox access can read its messages and access accounts. Do not expose either port through a network proxy.
 
