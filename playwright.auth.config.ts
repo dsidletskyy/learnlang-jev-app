@@ -5,8 +5,9 @@ export default defineConfig({
   testDir: './tests/auth-browser', workers: 1,
   use: { baseURL: 'http://127.0.0.1:3117', ...devices['Desktop Chrome'] },
   webServer: [
-    { command: 'node tests/auth-browser/smtp.mjs', url: 'http://127.0.0.1:3115', reuseExistingServer: false },
-    { command: 'node tests/isolation/reset.mjs --migrate && pnpm exec next dev --webpack --hostname 127.0.0.1 --port 3117', url: 'http://127.0.0.1:3117/sign-in', reuseExistingServer: false,
-      env: { DATABASE_URL: testUrl, BETTER_AUTH_URL: 'http://127.0.0.1:3117', BETTER_AUTH_SECRET: 'browser-test-secret-32-characters-long', AUTH_SMTP_PORT: '3116', TYPESAFE_API_KEY: '' } },
+    { command: 'node tests/isolation/jev-substitute.mjs', url: 'http://127.0.0.1:3101/health', reuseExistingServer: false },
+    { command: 'node tests/auth-browser/smtp.mjs > /tmp/learnlang-auth-browser-smtp.log 2>&1', url: 'http://127.0.0.1:3115', reuseExistingServer: false },
+    { command: 'node tests/isolation/reset.mjs --migrate && pnpm exec next dev --webpack --hostname 127.0.0.1 --port 3117 > /tmp/learnlang-auth-browser-server.log 2>&1', url: 'http://127.0.0.1:3117/sign-in', reuseExistingServer: false,
+      env: { DATABASE_URL: testUrl, BETTER_AUTH_URL: 'http://127.0.0.1:3117', BETTER_AUTH_SECRET: 'browser-test-secret-32-characters-long', AUTH_SMTP_PORT: '3116', TYPESAFE_API_KEY: 'test-only-key', JEV_TEST_URL: 'http://127.0.0.1:3101', AUTH_BROWSER_TEST: '1', NODE_OPTIONS: '--require=./tests/isolation/network-guard.cjs' } },
   ],
 });

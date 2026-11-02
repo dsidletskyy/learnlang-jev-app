@@ -1,6 +1,7 @@
 import net from 'node:net';
 import http from 'node:http';
 let message = '';
+let failDelivery = false;
 net.createServer(socket => {
   socket.write('220 localhost\r\n');
   let buffer = '', data = false;
@@ -13,10 +14,15 @@ net.createServer(socket => {
         if (line === '.') { data = false; socket.write('250 queued\r\n'); }
         else message += line + '\n';
       } else if (line.startsWith('EHLO')) socket.write('250 localhost\r\n');
+      else if (line.startsWith('MAIL FROM:') && failDelivery) socket.write('451 delivery unavailable\r\n');
       else if (line === 'DATA') { message = ''; data = true; socket.write('354 continue\r\n'); }
       else if (line === 'QUIT') socket.end('221 bye\r\n');
       else socket.write('250 ok\r\n');
     }
   });
 }).listen(3116, '127.0.0.1');
-http.createServer((_request, response) => response.end(message)).listen(3115, '127.0.0.1');
+http.createServer((request, response) => {
+  if (request.method === 'POST' && request.url === '/fail') failDelivery = true;
+  else if (request.method === 'POST' && request.url === '/resume') failDelivery = false;
+  response.end(message);
+}).listen(3115, '127.0.0.1');

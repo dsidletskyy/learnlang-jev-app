@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID, createHash } from 'node:crypto';
 import pg from 'pg';
+import { readFile } from 'node:fs/promises';
 
 test('registration, verification, sign-in and server-side sign-out', async ({ page, request }) => {
   const email = `${randomUUID()}@example.com`;
@@ -31,6 +32,12 @@ test('registration, verification, sign-in and server-side sign-out', async ({ pa
     await page.goto(untrustedLink.toString());
     await expect(page).toHaveURL('http://127.0.0.1:3117/verification?status=success');
     await expect(page.getByText('Verification complete.')).toBeVisible();
+    const serverLog = await readFile('/tmp/learnlang-auth-browser-server.log', 'utf8');
+    expect(serverLog.includes(new URL(link!).searchParams.get('token')!)).toBe(false);
+    expect(serverLog.includes(link!)).toBe(false);
+    const smtpLog = await readFile('/tmp/learnlang-auth-browser-smtp.log', 'utf8');
+    expect(smtpLog.includes(new URL(link!).searchParams.get('token')!)).toBe(false);
+    expect(smtpLog.includes(link!)).toBe(false);
     await expect(page.context().cookies()).resolves.not.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'better-auth.session_token' })]));
     await page.getByRole('link', { name: 'Sign in' }).click();
     await page.getByLabel('Email', { exact: true }).fill(email);
@@ -70,6 +77,34 @@ test('registration, verification, sign-in and server-side sign-out', async ({ pa
   } finally {
     await pool.query('delete from "user" where email = $1', [email]);
     await pool.query('delete from auth_identifier_rate_limit where identifier_hash = $1', [createHash('sha256').update(email).digest('hex')]);
+    await pool.end();
+  }
+});
+
+
+test('initial mail failure keeps registration generic and account unverified', async ({ page, request }) => {
+  const email = `${randomUUID()}@example.com`;
+  const pool = new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL });
+  try {
+    await request.post('http://127.0.0.1:3115/fail');
+    await page.goto('/register');
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill('an unusual secret passphrase');
+    await page.getByRole('button', { name: 'Register' }).click();
+    await expect(page.getByRole('status')).toHaveText('If registration can be completed, a verification link will be sent to the local inbox.');
+    expect((await pool.query('select email_verified from "user" where email=$1', [email])).rows).toEqual([{ email_verified: false }]);
+    await page.goto('/sign-in');
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill('an unusual secret passphrase');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('status')).toContainText('Unable to sign in');
+    const log = await readFile('/tmp/learnlang-auth-browser-server.log', 'utf8');
+    expect(log).toContain('Verification email delivery failed');
+    expect(log).not.toContain('451 delivery unavailable');
+  } finally {
+    await request.post('http://127.0.0.1:3115/resume');
+    await pool.query('delete from "user" where email=$1', [email]);
+    await pool.query('delete from auth_identifier_rate_limit where identifier_hash=$1', [createHash('sha256').update(email).digest('hex')]);
     await pool.end();
   }
 });

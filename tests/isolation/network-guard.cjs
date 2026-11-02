@@ -8,7 +8,7 @@ const connect = net.Socket.prototype.connect;
 net.Socket.prototype.connect = function (...args) {
   const first = Array.isArray(args[0]) ? args[0][0] : args[0];
   const options = typeof first === 'object' ? first : { port: first, host: args[1] };
-  if (!options || options.path || options.host !== '127.0.0.1' || ![3100, 3101, 55432].includes(Number(options.port))) {
+  if (!options || options.path || options.host !== '127.0.0.1' || !(process.env.AUTH_BROWSER_TEST === '1' ? [3101, 3116, 3117, 55432] : [3100, 3101, 55432]).includes(Number(options.port))) {
     throw new Error('Outbound network blocked in browser tests');
   }
   return connect.apply(this, args);
