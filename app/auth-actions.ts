@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies, headers } from 'next/headers';
+import { after } from 'next/server';
 import { sendPasswordRecoveryMail } from '../lib/password-recovery-mail';
 import { completePasswordRecovery, requestPasswordRecovery, withIdentifierLock } from '../lib/password-recovery';
 import { recoveryAcknowledgment, validateResetPassword } from '../lib/password-recovery-policy';
@@ -64,6 +65,12 @@ export async function signInAction(_state: string, form: FormData): Promise<stri
   redirect('/');
 }
 
+async function deleteSessionCookies() {
+  const store = await cookies();
+  store.delete('better-auth.session_token');
+  store.delete('__Secure-better-auth.session_token');
+}
+
 export async function signOutAction(): Promise<string> {
   const success = await revokeCurrentSession(async () => {
     const db = await getDatabase();
@@ -71,11 +78,7 @@ export async function signOutAction(): Promise<string> {
     if (!current) return false;
     const deleted = await db.delete(session).where(eq(session.id, current.session.id)).returning({ id: session.id });
     return deleted.length === 1;
-  }, async () => {
-    const store = await cookies();
-    store.delete('better-auth.session_token');
-    store.delete('__Secure-better-auth.session_token');
-  });
+  }, deleteSessionCookies);
   if (!success) return 'Sign out could not be completed. Your session may still be active; please try again.';
   redirect('/sign-in');
 }
@@ -87,11 +90,7 @@ export async function signOutAllSessionsAction(): Promise<string> {
     if (!current) return false;
     const deleted = await db.delete(session).where(eq(session.userId, current.user.id)).returning({ id: session.id });
     return deleted.some(row => row.id === current.session.id);
-  }, async () => {
-    const store = await cookies();
-    store.delete('better-auth.session_token');
-    store.delete('__Secure-better-auth.session_token');
-  });
+  }, deleteSessionCookies);
   if (!success) return 'Sign out of all sessions could not be completed. Your sessions may still be active; please try again.';
   redirect('/sign-in');
 }
@@ -102,6 +101,7 @@ export async function resendVerificationAction(_state: string, form: FormData): 
     limit: () => consumeIdentifierAttempt(getPool(), 'verification-resend', email),
     send: async () => (await providerRequest('send-verification-email', { email })).ok,
     log: message => console.error(message),
+    keepAlive: work => after(() => work),
   });
 }
 

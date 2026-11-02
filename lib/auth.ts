@@ -3,6 +3,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { createTransport } from 'nodemailer';
+import { Socket } from 'node:net';
 import * as schema from '../db/schema';
 import { ABSOLUTE_SESSION_SECONDS } from './session-cookie';
 
@@ -53,12 +54,25 @@ export function createLocalAuth(db: NodePgDatabase) {
   if (!baseURL || !secret) throw new Error('Auth configuration unavailable');
   const port = Number(process.env.AUTH_SMTP_PORT ?? '1025');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid local SMTP port');
-  const transport = createTransport({ host: '127.0.0.1', port, secure: false, connectionTimeout: 3000, greetingTimeout: 3000, socketTimeout: 3000 });
   return createAuth(db, {
     baseURL,
     secret,
     sendVerification: async (email, url) => {
-      await transport.sendMail({ from: 'Language Learning <auth@localhost>', to: email, subject: 'Verify your account', text: `Open this link to verify your account:\n\n${url}\n\nThis link expires in 24 hours.` });
+      const socket = new Socket();
+      const deadline = 2000;
+      const timer = setTimeout(() => socket.destroy(new Error('SMTP delivery deadline exceeded')), deadline);
+      const transport = createTransport({ host: '127.0.0.1', port, secure: false, socket, connectionTimeout: deadline, greetingTimeout: deadline, socketTimeout: deadline });
+      try {
+        await transport.sendMail({ from: 'Language Learning <auth@localhost>', to: email, subject: 'Verify your account', text: `Open this link to verify your account:\n\n${url}\n\nThis link expires in 24 hours.` });
+      } finally {
+        clearTimeout(timer);
+        transport.close();
+        if (!socket.closed) {
+          const closed = new Promise<void>(resolve => socket.once('close', resolve));
+          socket.destroy();
+          await closed;
+        }
+      }
     },
   });
 }

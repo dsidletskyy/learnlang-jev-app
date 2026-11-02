@@ -110,6 +110,7 @@ test('initial mail failure keeps registration generic and account unverified', a
 });
 
 test('resend stays generic and rate limited, including failed delivery and unknown accounts', async ({ page, request }) => {
+  test.setTimeout(60000);
   const email = `${randomUUID()}@example.com`;
   const unknown = `${randomUUID()}@example.com`;
   const password = 'an unusual secret passphrase';
@@ -159,6 +160,46 @@ test('resend stays generic and rate limited, including failed delivery and unkno
     await request.post('http://127.0.0.1:3115/resume');
     await pool.query('delete from "user" where email=$1', [email]);
     await pool.query('delete from auth_identifier_rate_limit where identifier_hash = any($1)', [[hash(email), hash(unknown)]]);
+    await pool.end();
+  }
+});
+
+
+test('resend timing stays bounded for unverified, unknown and verified accounts with slow SMTP', async ({ page, request }) => {
+  test.setTimeout(45000);
+  const email = `${randomUUID()}@example.com`;
+  const unknown = `${randomUUID()}@example.com`;
+  const pool = new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL });
+  const hashes = [email, unknown].map(value => createHash('sha256').update(value).digest('hex'));
+  try {
+    await page.goto('/register');
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill('an unusual secret passphrase');
+    await page.getByRole('button', { name: 'Register' }).click();
+    await expect(page.getByRole('status')).toContainText('verification link');
+    await page.goto('/verification?status=invalid');
+    await request.post('http://127.0.0.1:3115/slow');
+    const elapsed: number[] = [];
+    const resend = async (identifier: string) => {
+      await page.getByLabel('Email for verification').fill(identifier);
+      const started = performance.now();
+      const response = page.waitForResponse(r => r.request().method() === 'POST' && !!r.request().headers()['next-action']);
+      await page.getByRole('button', { name: 'Resend verification' }).click();
+      expect((await response).status()).toBe(200);
+      await expect(page.getByRole('status')).toHaveText('If verification is needed, a link will be sent to the local inbox.');
+      elapsed.push(performance.now() - started);
+    };
+    await resend(email);
+    await resend(unknown);
+    await pool.query('update "user" set email_verified=true where email=$1', [email]);
+    await resend(email);
+    for (const ms of elapsed) expect(ms).toBeGreaterThanOrEqual(2800);
+    for (const ms of elapsed) expect(ms).toBeLessThan(5000);
+    expect(Math.max(...elapsed) - Math.min(...elapsed)).toBeLessThan(1000);
+  } finally {
+    await request.post('http://127.0.0.1:3115/resume');
+    await pool.query('delete from "user" where email=$1', [email]);
+    await pool.query('delete from auth_identifier_rate_limit where identifier_hash = any($1)', [hashes]);
     await pool.end();
   }
 });

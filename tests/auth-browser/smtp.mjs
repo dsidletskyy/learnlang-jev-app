@@ -32,6 +32,7 @@ http.createServer((request, response) => {
   if (request.method === 'POST' && request.url === '/fail') failDelivery = true;
   else if (request.method === 'POST' && request.url === '/resume') { failDelivery = false; greetingDelay = 0; }
   else if (request.method === 'POST' && request.url === '/delay') greetingDelay = 1000;
+  else if (request.method === 'POST' && request.url === '/slow') greetingDelay = 5000;
   else if (request.method === 'POST' && request.url === '/clear') messages = [];
   if (request.url === '/messages') response.end(JSON.stringify(messages));
   else response.end(message);
