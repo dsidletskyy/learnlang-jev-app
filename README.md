@@ -23,7 +23,7 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Open http://127.0.0.1:3000, register, verify using the shared local inbox, and sign in. Add a phrase and refresh to see it retained. Legacy entries remain unowned and hidden. Start learning after configuring Jev. App startup never runs migrations; run `pnpm db:migrate` after updates too. For local production mode, run `pnpm build` and `pnpm start`.
+Open the origin configured in `BETTER_AUTH_URL` (by default http://127.0.0.1:3000), register, verify using the shared local inbox, and sign in. Add a phrase and refresh to see it retained. Legacy entries remain unowned and hidden. Start learning after configuring Jev. App startup never runs migrations; run `pnpm db:migrate` after updates too. For local production mode, run `pnpm build` and `pnpm start`.
 
 ### Accounts and local inbox
 
@@ -31,7 +31,7 @@ Compose starts Mailpit at http://127.0.0.1:8025, with SMTP on 127.0.0.1:1025. Bo
 
 After registration, open the verification message in Mailpit and follow its link. Links expire after 24 hours. Verification does not sign you in: return to sign-in manually. If a link is missing, invalid, or expired, use the verification resend form on the sign-in or verification page. Earlier unexpired verification links remain valid after a resend, even if delivery fails. Generic registration and resend acknowledgments do not confirm account existence or delivery; unverified accounts cannot sign in.
 
-Passwords must be 12–1024 characters; spaces and Unicode are supported. Common or compromised passwords in the versioned local `data/password-blocklist/ncsc-100k-v1.txt` are rejected. This finite list is not a complete breach corpus. Keep the file intact: if missing or modified, registration and password reset fail safely with a retry error; existing sign-in still works. Restore the exact file from the release and retry.
+Passwords must be 12–1024 UTF-16 code units; spaces and Unicode are supported, but some Unicode characters count as two code units. Common or compromised passwords in the versioned local `data/password-blocklist/ncsc-100k-v1.txt` are rejected. This finite list is not a complete breach corpus. Keep the file intact: if missing or modified, registration and password reset fail safely with a retry error; existing sign-in still works. Restore the exact file from the release and retry.
 
 Sessions expire after seven days of inactivity and at most 30 days after creation. **Sign out** revokes the current session; **Revoke all sessions** revokes every session including the current one. If revocation reports failure, retry; sessions may still be active. Sign in again after expiry or revocation. Temporary per-identifier limits allow five sign-in attempts and three requests each for registration, verification resend, and recovery per 15 minutes. Wait and retry when limited; these are not permanent lockouts and rotating identifiers can evade them.
 
