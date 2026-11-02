@@ -7,6 +7,7 @@ const digest = (token: string) => createHash('sha256').update(token).digest('hex
 // Serialize sign-in and recovery for one normalized identifier, including provider writes.
 export async function withIdentifierLock<T>(pool: Pool, email: string, run: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
+  let broken = false;
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [email.toLowerCase()]);
@@ -14,9 +15,9 @@ export async function withIdentifierLock<T>(pool: Pool, email: string, run: (cli
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch { broken = true; }
     throw error;
-  } finally { client.release(); }
+  } finally { client.release(broken); }
 }
 
 export async function requestPasswordRecovery(pool: Pool, email: string, baseURL: string, send: (email: string, url: string) => Promise<void>) {
