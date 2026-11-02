@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core';
 
 export const databaseReady = pgTable('database_ready', {
   id: integer('id').primaryKey(),
@@ -58,3 +58,9 @@ export const verification = pgTable('verification', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const authIdentifierRateLimit = pgTable('auth_identifier_rate_limit', {
+  operation: text('operation').notNull(),
+  identifierHash: text('identifier_hash').notNull(),
+  attempts: timestamp('attempts', { withTimezone: true }).array().notNull(),
+}, (table) => [primaryKey({ columns: [table.operation, table.identifierHash] })]);
