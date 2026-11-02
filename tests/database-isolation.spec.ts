@@ -16,6 +16,14 @@ test('leaves a dictionary entry for the next test', async ({ page }) => {
 });
 
 test('starts without the preceding test entry', async ({ page }) => {
+  const { default: pg } = await import('pg');
+  const client = new pg.Client({ connectionString: process.env.TEST_DATABASE_URL });
+  try {
+    await client.connect();
+    expect((await client.query('select count(*)::int as count from dictionary_entries')).rows[0].count).toBe(0);
+  } finally {
+    await client.end();
+  }
   await page.goto('/');
   await expect(page.getByText('Isolation marker', { exact: true })).toHaveCount(0);
 });

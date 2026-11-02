@@ -43,14 +43,14 @@ test('dictionary displays newest entries, duplicates and full multiline text', a
   }
 });
 
-test('entries created at the same time use descending IDs as tie-breaker', async ({ page }) => {
+test('entries created at the same time use descending IDs as tie-breaker', async ({ page, isolatedDatabase }) => {
   const { default: pg } = await import('pg');
   const client = new pg.Client({ connectionString: process.env.TEST_DATABASE_URL });
   try {
     await client.connect();
-    await client.query(`INSERT INTO dictionary_entries (original, language, translation, created_at) VALUES
-      ('First tied entry', 'en', 'First translation', '2025-01-01T00:00:00Z'),
-      ('Second tied entry', 'it', 'Second translation', '2025-01-01T00:00:00Z')`);
+    await client.query(`INSERT INTO dictionary_entries (original, language, translation, created_at, owner_id) VALUES
+      ('First tied entry', 'en', 'First translation', '2025-01-01T00:00:00Z', $1),
+      ('Second tied entry', 'it', 'Second translation', '2025-01-01T00:00:00Z', $1)`, [isolatedDatabase]);
   } finally {
     await client.end();
   }
