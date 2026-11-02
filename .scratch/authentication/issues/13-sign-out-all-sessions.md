@@ -4,10 +4,10 @@
 
 **Blocked by:** 10: Verified accounts and private dictionaries.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Provide a signed-in action that revokes all server-side sessions for the current account, including the current session, without affecting other accounts.
-- [ ] Subsequent protected navigation and actions in revoked sessions require sign-in and cannot mutate entries or invoke scoring.
-- [ ] Multi-context tests verify revocation, account isolation and subsequent manual sign-in.
+- [x] Provide a signed-in action that revokes all server-side sessions for the current account, including the current session, without affecting other accounts.
+- [x] Subsequent protected navigation and actions in revoked sessions require sign-in and cannot mutate entries or invoke scoring.
+- [x] Multi-context tests verify revocation, account isolation and subsequent manual sign-in.
 
 Source: [authentication spec](../spec.md).

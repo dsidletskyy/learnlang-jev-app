@@ -1,6 +1,6 @@
 # Local multi-user authentication
 
-Status: ready-for-agent
+Status: resolved
 
 ## Problem Statement
 

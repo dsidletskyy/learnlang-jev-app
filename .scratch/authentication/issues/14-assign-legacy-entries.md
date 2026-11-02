@@ -4,11 +4,11 @@
 
 **Blocked by:** 10: Verified accounts and private dictionaries.
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Operator selects an existing verified account by account ID; invalid or unverified selection leaves entries unchanged.
-- [ ] Assignment atomically claims all currently unowned entries only, protects against races, never reassigns owned entries and supports safe retry after failure. No automatic assignment or mandatory backup is introduced.
-- [ ] Assigned entries appear only in the selected account's dictionary and learning sessions; unassigned entries remain hidden and normal account use works while assignment is pending.
-- [ ] Isolated database integration tests cover migration preservation, eligibility, concurrency, rollback, retry and preservation of owned entries.
+- [x] Operator selects an existing verified account by account ID; invalid or unverified selection leaves entries unchanged.
+- [x] Assignment atomically claims all currently unowned entries only, protects against races, never reassigns owned entries and supports safe retry after failure. No automatic assignment or mandatory backup is introduced.
+- [x] Assigned entries appear only in the selected account's dictionary and learning sessions; unassigned entries remain hidden and normal account use works while assignment is pending.
+- [x] Isolated database integration tests cover migration preservation, eligibility, concurrency, rollback, retry and preservation of owned entries.
 
 Source: [authentication spec](../spec.md).
