@@ -11,6 +11,7 @@ import { consumeIdentifierAttempt, type AuthLimitOperation } from '../lib/auth-i
 import { register, signIn } from '../lib/auth-entry-policy';
 import { revokeCurrentSession } from '../lib/sign-out';
 import { sessionCookieOptions } from '../lib/session-cookie';
+import { resendVerification } from '../lib/verification-resend';
 
 const genericSignIn = 'Unable to sign in. Check your details and verification, then try again.';
 const registrationAcknowledgment = 'If registration can be completed, a verification link will be sent to the local inbox.';
@@ -77,10 +78,9 @@ export async function signOutAction(): Promise<string> {
 
 export async function resendVerificationAction(_state: string, form: FormData): Promise<string> {
   const email = String(form.get('email') ?? '');
-  try {
-    if (await consumeIdentifierAttempt(getPool(), 'verification-resend', email)) {
-      await providerRequest('send-verification-email', { email });
-    }
-  } catch { /* Keep acknowledgment generic, including delivery and limiter failures. */ }
-  return 'If verification is needed, a link will be sent to the local inbox.';
+  return resendVerification({
+    limit: () => consumeIdentifierAttempt(getPool(), 'verification-resend', email),
+    send: async () => (await providerRequest('send-verification-email', { email })).ok,
+    log: message => console.error(message),
+  });
 }

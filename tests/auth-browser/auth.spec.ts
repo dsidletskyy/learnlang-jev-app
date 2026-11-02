@@ -108,3 +108,57 @@ test('initial mail failure keeps registration generic and account unverified', a
     await pool.end();
   }
 });
+
+test('resend stays generic and rate limited, including failed delivery and unknown accounts', async ({ page, request }) => {
+  const email = `${randomUUID()}@example.com`;
+  const unknown = `${randomUUID()}@example.com`;
+  const password = 'an unusual secret passphrase';
+  const pool = new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL });
+  const hash = (value: string) => createHash('sha256').update(value.toLowerCase()).digest('hex');
+  try {
+    await page.goto('/register');
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Register' }).click();
+    await expect(page.getByRole('status')).toContainText('verification link');
+    const message = (await (await request.get('http://127.0.0.1:3115')).text()).replaceAll('=\n', '').replaceAll('=3D', '=');
+    const original = message.match(/http:\/\/127\.0\.0\.1:3117\/api\/auth\/verify-email\?[^\s]+/)?.[0];
+    expect(original).toBeTruthy();
+    await page.goto('/verification?status=invalid');
+    const resend = async (identifier: string) => {
+      await page.getByLabel('Email for verification').fill(identifier);
+      const response = page.waitForResponse(r => r.request().method() === 'POST' && !!r.request().headers()['next-action']);
+      await page.getByRole('button', { name: 'Resend verification' }).click();
+      expect((await response).status()).toBe(200);
+      await expect(page.getByRole('status')).toHaveText('If verification is needed, a link will be sent to the local inbox.');
+    };
+    await resend(email.toUpperCase());
+    await request.post('http://127.0.0.1:3115/fail');
+    await resend(email);
+    await request.post('http://127.0.0.1:3115/resume');
+    await resend(email);
+    const beforeBlocked = await (await request.get('http://127.0.0.1:3115')).text();
+    await resend(email);
+    expect(await (await request.get('http://127.0.0.1:3115')).text()).toBe(beforeBlocked);
+    for (let i = 0; i < 4; i++) await resend(unknown);
+    const rows = await pool.query("select identifier_hash, cardinality(attempts) as count from auth_identifier_rate_limit where operation='verification-resend' and identifier_hash = any($1)", [[hash(email), hash(unknown)]]);
+    expect(rows.rows).toHaveLength(2);
+    expect(rows.rows.map(row => row.count)).toEqual([3, 3]);
+    expect((await pool.query('select email_verified from "user" where email=$1', [email])).rows[0].email_verified).toBe(false);
+    await page.goto(original!);
+    await expect(page.getByText('Verification complete.')).toBeVisible();
+    await page.goto(original!);
+    await expect(page.getByText('Verification complete.')).toBeVisible();
+    expect((await page.context().cookies()).some(c => c.name.includes('session_token'))).toBe(false);
+    await page.getByRole('link', { name: 'Sign in' }).click();
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  } finally {
+    await request.post('http://127.0.0.1:3115/resume');
+    await pool.query('delete from "user" where email=$1', [email]);
+    await pool.query('delete from auth_identifier_rate_limit where identifier_hash = any($1)', [[hash(email), hash(unknown)]]);
+    await pool.end();
+  }
+});
