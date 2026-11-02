@@ -27,6 +27,16 @@ Set `BETTER_AUTH_URL` and a secret of at least 32 characters in `.env`. Open htt
 
 Compose also starts a local Mailpit inbox at http://127.0.0.1:8025, with SMTP on 127.0.0.1:1025. Registration sends verification links to this shared inbox. Verification proves shared inbox access, not external mailbox ownership. Anyone with inbox access can read its messages and access accounts. Do not expose either port through a network proxy.
 
+### Assign legacy entries
+
+Legacy entries stay hidden until an operator explicitly assigns them. After migration and account verification, obtain the intended account ID from the local database (for example, `SELECT id, email, email_verified FROM "user";`). Run:
+
+```sh
+node --env-file-if-exists=.env scripts/assign-legacy-entries.mjs ACCOUNT_ID
+```
+
+The operation assigns only currently unowned entries to that verified account, in one transaction. Existing owned entries remain untouched. If it fails, correct the problem and retry; no backup is required. Normal account use does not depend on assignment.
+
 ### Storage and recovery
 
 `docker compose stop` stops PostgreSQL without deleting its volume. Recreating the container preserves that volume. **Deleting the personal PostgreSQL volume deletes the dictionary**; do not run `docker compose down -v` unless you intend to delete it. Persistent storage is not a backup; backup and restore are not provided.
