@@ -58,3 +58,20 @@ test('resend resets and releases connections before padding, discarding failed r
     await work;
   }
 });
+
+test('queued delivery drains after provider failure and logs delivery failures safely', async () => {
+  const logs = [];
+  let deliveries = 0;
+  const result = await resendVerification({
+    acquire: async () => ({ query: async () => {}, release: () => {} }),
+    limit: async () => true,
+    send: async (_client, queueDelivery) => {
+      queueDelivery(async () => { deliveries++; throw Error('secret link'); });
+      throw Error('provider failure');
+    },
+    log: message => logs.push(message),
+  }, 1);
+  assert.equal(result, 'If verification is needed, a link will be sent to the local inbox.');
+  assert.equal(deliveries, 1);
+  assert.deepEqual(logs, ['Verification resend unavailable', 'Verification email delivery failed']);
+});

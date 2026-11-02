@@ -101,14 +101,14 @@ test('Next development HMR websocket does not block database drain', async () =>
 
 test('drain waits for stalled verification resend work before permitting reset', async () => {
   const { resendVerification } = await import('../../lib/verification-resend.ts');
-  for (const phase of ['limit', 'send']) {
+  for (const phase of ['limit', 'send', 'delivery']) {
     let release, started;
     const gate = new Promise(resolve => { release = resolve; });
     const active = new Promise(resolve => { started = resolve; });
     let sideEffects = 0;
     const upstream = http.createServer(async (_request, response) => {
       const run = async current => { if (phase === current) { started(); await gate; } sideEffects++; return true; };
-      response.end(await resendVerification({ acquire: async () => ({ query: async () => {}, release: () => {} }), limit: () => run('limit'), send: () => run('send'), log: () => {} }, 10));
+      response.end(await resendVerification({ acquire: async () => ({ query: async () => {}, release: () => {} }), limit: () => run('limit'), send: async (_client, queueDelivery) => { queueDelivery(() => run('delivery')); return run('send'); }, log: () => {} }, 10));
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startRequestProxy({ upstreamPort, port: 0, controlPort: 0, drainTimeout: 1000 });
@@ -122,9 +122,9 @@ test('drain waits for stalled verification resend work before permitting reset',
       release();
       assert.equal((await request).status, 200);
       assert.equal((await drain).status, 200);
-      assert.equal(sideEffects, 2);
+      assert.equal(sideEffects, 3);
       await new Promise(resolve => setTimeout(resolve, 20));
-      assert.equal(sideEffects, 2);
+      assert.equal(sideEffects, 3);
     } finally {
       release();
       await proxy.close();

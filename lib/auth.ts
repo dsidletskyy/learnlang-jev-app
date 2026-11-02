@@ -45,7 +45,7 @@ export function createAuth(db: NodePgDatabase, options: AuthOptions) {
   });
 }
 
-export function createLocalAuth(db: NodePgDatabase) {
+export function createLocalAuth(db: NodePgDatabase, sendVerification?: AuthOptions['sendVerification']) {
   const baseURL = process.env.BETTER_AUTH_URL;
   const secret = process.env.BETTER_AUTH_SECRET;
   if (!baseURL || !secret) throw new Error('Auth configuration unavailable');
@@ -53,7 +53,7 @@ export function createLocalAuth(db: NodePgDatabase) {
   return createAuth(db, {
     baseURL,
     secret,
-    sendVerification: (email, url) => sendVerificationMail(port, email, url),
+    sendVerification: sendVerification ?? ((email, url) => sendVerificationMail(port, email, url)),
   });
 }
 

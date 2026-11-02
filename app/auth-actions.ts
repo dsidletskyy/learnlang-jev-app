@@ -17,12 +17,13 @@ import { revokeCurrentSession } from '../lib/sign-out';
 import { sessionCookieOptions } from '../lib/session-cookie';
 import { resendVerification } from '../lib/verification-resend';
 import { authOrigin, authSmtpPort } from '../lib/auth-configuration';
+import { sendVerificationMail } from '../lib/verification-mail';
 
 const genericSignIn = 'Unable to sign in. Check your details and verification, then try again.';
 const registrationAcknowledgment = 'If registration can be completed, a verification link will be sent to the local inbox.';
 
-async function providerRequest(path: string, body?: object, cookie?: string, db?: NodePgDatabase) {
-  const auth = createLocalAuth(db ?? await getDatabase());
+async function providerRequest(path: string, body?: object, cookie?: string, db?: NodePgDatabase, sendVerification?: (email: string, url: string) => Promise<void>) {
+  const auth = createLocalAuth(db ?? await getDatabase(), sendVerification);
   const origin = new URL(process.env.BETTER_AUTH_URL!).origin;
   return auth.handler(new Request(`${origin}/api/auth/${path}`, {
     method: 'POST', headers: { origin, 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
@@ -100,7 +101,10 @@ export async function resendVerificationAction(_state: string, form: FormData): 
   return resendVerification({
     acquire: () => getPool().connect(),
     limit: client => consumeIdentifierAttempt(client, 'verification-resend', email),
-    send: async client => (await providerRequest('send-verification-email', { email }, undefined, drizzle(client))).ok,
+    send: async (client, queueDelivery) => (await providerRequest('send-verification-email', { email }, undefined, drizzle(client), async (recipient, url) => {
+      const port = authSmtpPort(process.env.AUTH_SMTP_PORT);
+      queueDelivery(() => sendVerificationMail(port, recipient, url));
+    })).ok,
     log: message => console.error(message),
   });
 }

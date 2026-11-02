@@ -34,11 +34,11 @@ test('resends pad after pool waits and release capacity while padding', { timeou
     let slowDone = false;
     let signalSlow;
     const slowFinished = new Promise(resolve => { signalSlow = resolve; });
-    const auth = client => createAuth(drizzle(client), {
-      baseURL: 'http://localhost:3000', secret: 'test-secret-for-better-auth-persistence-only',
-      sendVerification: async () => { if (slow) { await delay(180); slowDone = true; signalSlow(); } },
+    const deliver = async () => { if (slow) { await delay(180); slowDone = true; signalSlow(); } };
+    const auth = (client, sendVerification = deliver) => createAuth(drizzle(client), {
+      baseURL: 'http://localhost:3000', secret: 'test-secret-for-better-auth-persistence-only', sendVerification,
     });
-    const post = (client, path, body) => auth(client).handler(new Request(`http://localhost:3000/api/auth/${path}`, {
+    const post = (client, path, body, sendVerification) => auth(client, sendVerification).handler(new Request(`http://localhost:3000/api/auth/${path}`, {
       method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' }, body: JSON.stringify(body),
     }));
     for (const email of ['verified@example.com', 'unverified@example.com']) {
@@ -56,7 +56,7 @@ test('resends pad after pool waits and release capacity while padding', { timeou
       return resendVerification({
         acquire: async () => { const client = await pool.connect(); acquired = performance.now(); return client; },
         limit: client => consumeIdentifierAttempt(client, 'verification-resend', email),
-        send: async client => (await post(client, 'send-verification-email', { email })).ok,
+        send: async (client, queueDelivery) => (await post(client, 'send-verification-email', { email }, async () => { queueDelivery(deliver); })).ok,
         log: () => assert.fail('unexpected failure'),
       }, floor).then(value => { completed++; return { kind, value, elapsed: performance.now() - started, workElapsed: performance.now() - acquired }; });
     });
@@ -79,6 +79,55 @@ test('resends pad after pool waits and release capacity while padding', { timeou
     for (const result of results) assert.ok(result.workElapsed < floor + 250, `${result.kind}: ${result.workElapsed}`);
   } finally {
     held?.release();
+    await pool.end();
+    await admin.query(`drop schema "${namespace}" cascade`);
+    await admin.end();
+  }
+});
+
+test('slow verification delivery does not block unrelated pool work and drains before acknowledgment', { timeout: 10000 }, async () => {
+  assert.equal(process.env.TEST_DATABASE_URL, testUrl);
+  const admin = new pg.Client({ connectionString: testUrl });
+  await admin.connect();
+  const namespace = `resend_mail_${randomUUID().replaceAll('-', '')}`;
+  await admin.query(`create schema "${namespace}"`);
+  const pool = new pg.Pool({ connectionString: testUrl, options: `-c search_path=${namespace}`, max: 1 });
+  let unblock;
+  const gate = new Promise(resolve => { unblock = resolve; });
+  try {
+    await pool.query((await readFile('drizzle/0003_better_auth.sql', 'utf8')).replaceAll('"public".', `"${namespace}".`));
+    await pool.query(await readFile('drizzle/0004_auth_identifier_rate_limit.sql', 'utf8'));
+    let slow = false;
+    let started;
+    const mailStarted = new Promise(resolve => { started = resolve; });
+    const deliver = async () => { if (slow) { started(); await gate; } };
+    const auth = (client, sendVerification = deliver) => createAuth(drizzle(client), {
+      baseURL: 'http://localhost:3000', secret: 'test-secret-for-better-auth-persistence-only', sendVerification,
+    });
+    const post = (client, path, body, sendVerification) => auth(client, sendVerification).handler(new Request(`http://localhost:3000/api/auth/${path}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://localhost:3000' }, body: JSON.stringify(body),
+    }));
+    const email = 'unverified@example.com';
+    assert.equal((await post(pool, 'sign-up/email', { email, password: 'a long passphrase', name: email })).status, 200);
+    slow = true;
+    let acknowledged = false;
+    const resend = resendVerification({
+      acquire: () => pool.connect(),
+      limit: client => consumeIdentifierAttempt(client, 'verification-resend', email),
+      send: async (client, queueDelivery) => (await post(client, 'send-verification-email', { email }, async () => { queueDelivery(deliver); })).ok,
+      log: () => assert.fail('unexpected failure'),
+    }, 10).then(() => { acknowledged = true; });
+    try {
+      await Promise.race([mailStarted, delay(3000).then(() => { throw Error('delivery did not start'); })]);
+      const queryCompleted = await Promise.race([pool.query('select 1').then(() => true), delay(200).then(() => false)]);
+      assert.equal(queryCompleted, true, 'slow delivery must not exhaust shared pool');
+      assert.equal(acknowledged, false, 'delivery must drain before acknowledgment');
+    } finally {
+      unblock();
+      await resend;
+    }
+  } finally {
+    unblock();
     await pool.end();
     await admin.query(`drop schema "${namespace}" cascade`);
     await admin.end();
