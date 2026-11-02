@@ -11,7 +11,7 @@ if (process.env.JEV_TEST_URL !== 'http://127.0.0.1:3101') {
 export default defineConfig({
   testDir: './tests',
   testMatch: '**/*.spec.ts',
-  testIgnore: ['retry-isolation/**', 'database-not-ready.spec.ts', 'learning-configured-*.spec.ts', 'learning-error-toasts.spec.ts'],
+  testIgnore: ['auth-browser/**', 'retry-isolation/**', 'database-not-ready.spec.ts', 'learning-configured-*.spec.ts', 'learning-error-toasts.spec.ts'],
   workers: 1,
   use: { baseURL: 'http://127.0.0.1:3100' },
   projects: [

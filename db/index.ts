@@ -16,8 +16,12 @@ export async function checkDatabaseReady(): Promise<boolean> {
   }
 }
 
-export async function getDatabase() {
+export function getPool() {
   if (!process.env.DATABASE_URL) throw new Error('Database unavailable');
   pool ??= new Pool({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 3000 });
-  return drizzle(pool);
+  return pool;
+}
+
+export async function getDatabase() {
+  return drizzle(getPool());
 }

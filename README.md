@@ -25,7 +25,7 @@ pnpm dev
 
 Open http://127.0.0.1:3000, add a phrase, and refresh to see it retained. Start learning after configuring Jev. App startup never runs migrations; run `pnpm db:migrate` after updates too. For local production mode, run `pnpm build` and `pnpm start`.
 
-Compose also starts a local Mailpit inbox at http://127.0.0.1:8025, with SMTP on 127.0.0.1:1025. Authentication and email delivery are not implemented yet; this inbox does not protect the dictionary. Anyone with access to the shared inbox can read its messages. Do not expose either port through a network proxy.
+Compose also starts a local Mailpit inbox at http://127.0.0.1:8025, with SMTP on 127.0.0.1:1025. Registration sends verification links to this shared inbox. Verification proves shared inbox access, not external mailbox ownership. Anyone with inbox access can read its messages and access accounts. Do not expose either port through a network proxy.
 
 ### Storage and recovery
 
