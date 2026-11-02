@@ -10,6 +10,7 @@ import { checkPasswordBlocklist } from '../lib/auth-password-blocklist';
 import { consumeIdentifierAttempt, type AuthLimitOperation } from '../lib/auth-identifier-rate-limit';
 import { register, signIn } from '../lib/auth-entry-policy';
 import { revokeCurrentSession } from '../lib/sign-out';
+import { sessionCookieOptions } from '../lib/session-cookie';
 
 const genericSignIn = 'Unable to sign in. Check your details and verification, then try again.';
 const registrationAcknowledgment = 'If registration can be completed, a verification link will be sent to the local inbox.';
@@ -51,10 +52,7 @@ export async function signInAction(_state: string, form: FormData): Promise<stri
     if (!sessionCookie) return false;
     const pair = sessionCookie.split(';', 1)[0];
     const equals = pair.indexOf('=');
-    (await cookies()).set(pair.slice(0, equals), decodeURIComponent(pair.slice(equals + 1)), {
-      httpOnly: true, sameSite: 'lax', secure: new URL(process.env.BETTER_AUTH_URL!).protocol === 'https:', path: '/',
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    (await cookies()).set(pair.slice(0, equals), decodeURIComponent(pair.slice(equals + 1)), sessionCookieOptions(process.env.BETTER_AUTH_URL!));
     return true;
   }));
   if (!success) return genericSignIn;

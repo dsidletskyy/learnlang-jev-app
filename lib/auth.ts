@@ -4,9 +4,10 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { createTransport } from 'nodemailer';
 import * as schema from '../db/schema';
+import { ABSOLUTE_SESSION_SECONDS } from './session-cookie';
 
 const DAY = 24 * 60 * 60;
-const ABSOLUTE_SESSION_MS = 30 * DAY * 1000;
+const ABSOLUTE_SESSION_MS = ABSOLUTE_SESSION_SECONDS * 1000;
 
 type AuthOptions = {
   baseURL: string;
@@ -65,9 +66,16 @@ export function createLocalAuth(db: NodePgDatabase) {
 export type Auth = ReturnType<typeof createAuth>;
 
 export async function validatedSession(auth: Auth, headers: Headers) {
-  const result = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
-  if (!result || !result.user.emailVerified) return null;
-  const created = result.session.createdAt.getTime();
-  if (!Number.isFinite(created) || created > Date.now() || Date.now() - created >= ABSOLUTE_SESSION_MS) return null;
-  return result;
+  const valid = (result: Awaited<ReturnType<typeof auth.api.getSession>>) => {
+    if (!result || !result.user.emailVerified) return false;
+    const now = Date.now();
+    const created = result.session.createdAt.getTime();
+    const expires = result.session.expiresAt.getTime();
+    return Number.isFinite(created) && created <= now && now - created < ABSOLUTE_SESSION_MS && Number.isFinite(expires) && expires > now;
+  };
+  // Check expiry before provider refresh: provider accepts expiresAt equal to now.
+  const current = await auth.api.getSession({ headers, query: { disableCookieCache: true, disableRefresh: true } });
+  if (!valid(current)) return null;
+  const refreshed = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
+  return valid(refreshed) ? refreshed : null;
 }
