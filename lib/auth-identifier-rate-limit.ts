@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 export type AuthLimitOperation = 'sign-in' | 'registration' | 'verification-resend' | 'reset';
 const limits: Record<AuthLimitOperation, number> = {
@@ -10,7 +10,7 @@ const limits: Record<AuthLimitOperation, number> = {
 };
 
 // The provider lowercases email identifiers; do not trim or otherwise change its identity rules.
-export async function consumeIdentifierAttempt(pool: Pool, operation: AuthLimitOperation, identifier: string): Promise<boolean> {
+export async function consumeIdentifierAttempt(pool: Pool | PoolClient, operation: AuthLimitOperation, identifier: string): Promise<boolean> {
   const limit = limits[operation];
   if (!limit || typeof identifier !== 'string') throw new Error('Auth rate limit unavailable');
   const identifierHash = createHash('sha256').update(identifier.toLowerCase()).digest('hex');
@@ -30,4 +30,20 @@ export async function consumeIdentifierAttempt(pool: Pool, operation: AuthLimitO
   } catch {
     throw new Error('Auth rate limit unavailable');
   }
+}
+
+// Recovery must not acknowledge a request while its rate-limit write is still blocked.
+export async function consumeRecoveryAttempt(pool: Pool, identifier: string): Promise<boolean> {
+  const client = await pool.connect();
+  let broken = false;
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL lock_timeout = '3s'");
+    const allowed = await consumeIdentifierAttempt(client, 'reset', identifier);
+    await client.query('COMMIT');
+    return allowed;
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { broken = true; }
+    throw error;
+  } finally { client.release(broken); }
 }

@@ -35,3 +35,28 @@ test('identifier limits are atomic, operation-specific, normalized, and expire',
     await admin.end();
   }
 });
+
+test('recovery rate-limit lock contention fails bounded and releases transaction', { timeout: 10000 }, async () => {
+  const { consumeRecoveryAttempt } = await import('../../lib/auth-identifier-rate-limit.ts');
+  assert.equal(process.env.TEST_DATABASE_URL, testUrl);
+  const admin = new pg.Client({ connectionString: testUrl });
+  await admin.connect();
+  const namespace = `auth_limit_${randomUUID().replaceAll('-', '')}`;
+  await admin.query(`create schema "${namespace}"`);
+  const pool = new pg.Pool({ connectionString: testUrl, options: `-c search_path=${namespace}`, connectionTimeoutMillis: 300 });
+  const holder = await pool.connect();
+  try {
+    await pool.query(await readFile('drizzle/0004_auth_identifier_rate_limit.sql', 'utf8'));
+    await holder.query('BEGIN');
+    await holder.query('LOCK TABLE auth_identifier_rate_limit IN ACCESS EXCLUSIVE MODE');
+    const started = performance.now();
+    await assert.rejects(consumeRecoveryAttempt(pool, 'person@example.com'), /rate limit unavailable/i);
+    assert.ok(performance.now() - started < 5000);
+    await holder.query('ROLLBACK');
+    assert.equal(await consumeRecoveryAttempt(pool, 'person@example.com'), true);
+    assert.equal((await pool.query('show lock_timeout')).rows[0].lock_timeout, '0');
+  } finally {
+    await holder.query('ROLLBACK'); holder.release();
+    await pool.end(); await admin.query(`drop schema "${namespace}" cascade`); await admin.end();
+  }
+});

@@ -22,7 +22,7 @@ test('recovery acknowledgment waits for floor for known, unknown, throttled and 
       now += outcome === 'known' ? 3000 : 10;
       if (outcome === 'failed') throw Error('secret');
     }, () => now, async ms => { waits.push(ms); now += ms; }, () => {});
-    assert.equal(response, 'If recovery is available, a link will be sent to the local inbox.');
+    assert.equal(response, outcome === 'failed' ? 'Password recovery is temporarily unavailable. Please try again later.' : 'If recovery is available, a link will be sent to the local inbox.');
     assert.equal(now, 10100);
     assert.equal(waits.length, 1);
   }

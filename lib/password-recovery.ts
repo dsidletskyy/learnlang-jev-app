@@ -26,6 +26,7 @@ export async function requestPasswordRecovery(pool: Pool, email: string, baseURL
   let locked = false;
   let broken = false;
   try {
+    await client.query("SET lock_timeout = '3s'");
     // Delivery has its own session lock: issuance commits before sending, while
     // reset and sign-in use the separate transaction-scoped identifier lock.
     await client.query('SELECT pg_advisory_lock(hashtextextended($1, 1))', [email.toLowerCase()]);
@@ -55,6 +56,7 @@ export async function requestPasswordRecovery(pool: Pool, email: string, baseURL
       try { await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 1))', [email.toLowerCase()]); }
       catch { broken = true; }
     }
+    try { await client.query('RESET lock_timeout'); } catch { broken = true; }
     client.release(broken);
   }
 }

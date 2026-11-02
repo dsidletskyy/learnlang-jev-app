@@ -14,7 +14,8 @@ export async function recoveryAcknowledgment(
   log: () => void = () => console.error('Password recovery request failed'),
 ): Promise<string> {
   const started = now();
-  try { await run(); } catch { log(); }
+  let failed = false;
+  try { await run(); } catch { failed = true; log(); }
   await wait(Math.max(0, 10_000 - (now() - started)));
-  return 'If recovery is available, a link will be sent to the local inbox.';
+  return failed ? 'Password recovery is temporarily unavailable. Please try again later.' : 'If recovery is available, a link will be sent to the local inbox.';
 }
