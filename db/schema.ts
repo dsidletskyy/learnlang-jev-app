@@ -64,3 +64,9 @@ export const authIdentifierRateLimit = pgTable('auth_identifier_rate_limit', {
   identifierHash: text('identifier_hash').notNull(),
   attempts: timestamp('attempts', { withTimezone: true }).array().notNull(),
 }, (table) => [primaryKey({ columns: [table.operation, table.identifierHash] })]);
+
+export const passwordRecovery = pgTable('password_recovery', {
+  userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});

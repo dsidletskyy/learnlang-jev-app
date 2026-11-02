@@ -5,5 +5,5 @@ node --conditions=react-server --test tests/integration/assign-legacy-entries.mj
 node --conditions=react-server --test tests/integration/dictionary-owner-access.mjs
 node tests/integration/better-auth-persistence.mjs
 node --conditions=react-server --test tests/integration/auth-foundation.mjs tests/integration/session-expiry.mjs tests/integration/verification-lifecycle.mjs tests/integration/protected-scoring-isolation.mjs
-node --test tests/integration/auth-identifier-rate-limit.mjs
+node --test tests/integration/auth-identifier-rate-limit.mjs tests/integration/password-recovery.mjs
 node tests/integration/database.mjs

@@ -83,3 +83,7 @@ Never substitute the personal Compose file in test lifecycle commands.
 ## Local security boundary
 
 `pnpm dev` and `pnpm start` bind Next.js to `127.0.0.1`; PostgreSQL publishes its port on loopback only. State changes use Next.js Server Actions, which check request origin against host by default. There are no route handlers. Database access and Jev calls stay server-side. This is not protection against other users or software with access to your computer or database, and it is not a public deployment configuration.
+
+### Password recovery
+
+Use **Forgot password?** on the sign-in page and check the local inbox. A recovery link expires after one hour; requesting another invalidates earlier links, including when delivery fails. Retry after a delivery failure (requests are limited per identifier). Recovery changes the password and revokes all sessions; sign in manually afterward. An unverified account remains unverified. The password blocklist must be available to set a new password. Anyone with access to the shared inbox can recover any account.

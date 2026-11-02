@@ -24,7 +24,7 @@ try {
   if (process.argv[2] === '--migrate') {
     execFileSync('pnpm', ['db:migrate'], { stdio: 'inherit', env: { ...process.env, DATABASE_URL: testUrl } });
   } else {
-    await client.query('truncate table public.database_ready, public.dictionary_entries, public."user", public.session, public.account, public.verification, public.auth_identifier_rate_limit restart identity');
+    await client.query('truncate table public.database_ready, public.dictionary_entries, public.password_recovery, public."user", public.session, public.account, public.verification, public.auth_identifier_rate_limit restart identity');
   }
 } finally {
   await client.end();
