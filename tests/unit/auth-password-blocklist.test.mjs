@@ -4,6 +4,7 @@ import { checkPasswordBlocklist } from '../../lib/auth-password-blocklist.ts';
 
 test('versioned local blocklist rejects common passwords without changing passphrases', async () => {
   assert.equal(await checkPasswordBlocklist('123456789012'), 'blocked');
+  assert.equal(await checkPasswordBlocklist('１２３４５６７８９０１２'), 'blocked');
   assert.equal(await checkPasswordBlocklist('a unique 🐧 passphrase with spaces'), 'allowed');
 });
 

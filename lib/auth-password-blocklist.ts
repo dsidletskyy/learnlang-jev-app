@@ -13,7 +13,9 @@ export async function checkPasswordBlocklist(
   try {
     const contents = await readBlocklist();
     if (createHash('sha256').update(contents).digest('hex') !== BLOCKLIST_SHA256) return 'unavailable';
-    return contents.split(/\r?\n/).includes(password) ? 'blocked' : 'allowed';
+    // Better Auth hashes NFKC-normalized passwords, so equivalent inputs must be blocked too.
+    const normalized = password.normalize('NFKC');
+    return contents.split(/\r?\n/).some(entry => entry.normalize('NFKC') === normalized) ? 'blocked' : 'allowed';
   } catch {
     return 'unavailable';
   }
