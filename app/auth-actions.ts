@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { session } from '../db/schema';
 import { redirect } from 'next/navigation';
 import { getDatabase, getPool } from '../db';
-import { createLocalAuth } from '../lib/auth';
+import { createLocalAuth, validatedSession } from '../lib/auth';
 import { checkPasswordBlocklist } from '../lib/auth-password-blocklist';
 import { consumeIdentifierAttempt, type AuthLimitOperation } from '../lib/auth-identifier-rate-limit';
 import { register, signIn } from '../lib/auth-entry-policy';
@@ -72,6 +72,22 @@ export async function signOutAction(): Promise<string> {
     store.delete('__Secure-better-auth.session_token');
   });
   if (!success) return 'Sign out could not be completed. Your session may still be active; please try again.';
+  redirect('/sign-in');
+}
+
+export async function signOutAllSessionsAction(): Promise<string> {
+  const success = await revokeCurrentSession(async () => {
+    const db = await getDatabase();
+    const current = await validatedSession(createLocalAuth(db), await headers());
+    if (!current) return false;
+    const deleted = await db.delete(session).where(eq(session.userId, current.user.id)).returning({ id: session.id });
+    return deleted.some(row => row.id === current.session.id);
+  }, async () => {
+    const store = await cookies();
+    store.delete('better-auth.session_token');
+    store.delete('__Secure-better-auth.session_token');
+  });
+  if (!success) return 'Sign out of all sessions could not be completed. Your sessions may still be active; please try again.';
   redirect('/sign-in');
 }
 
