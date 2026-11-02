@@ -1,9 +1,14 @@
 import http from 'node:http';
 
+let requestCount = 0;
+
 http.createServer((request, response) => {
   if (request.method === 'GET' && request.url === '/health') {
     response.writeHead(200).end('ready');
+  } else if (request.method === 'GET' && request.url === '/request-count') {
+    response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ count: requestCount }));
   } else if (request.method === 'POST' && request.url === '/v1/systemone') {
+    requestCount++;
     let body = '';
     request.on('data', chunk => { body += chunk; });
     request.on('end', () => {
