@@ -23,7 +23,13 @@ test('registration, verification, sign-in and server-side sign-out', async ({ pa
     await page.getByLabel('Email for verification').fill(email);
     await page.getByRole('button', { name: 'Resend verification' }).click();
     await expect(page.getByRole('status').last()).toContainText('If verification is needed');
-    await page.goto(link!);
+    await page.goto('/api/auth/verify-email?token=invalid&callbackURL=https%3A%2F%2Fevil.example');
+    await expect(page).toHaveURL('http://127.0.0.1:3117/verification?status=invalid');
+    await expect(page.getByText('This link is invalid or expired.')).toBeVisible();
+    const untrustedLink = new URL(link!);
+    untrustedLink.searchParams.set('callbackURL', 'https://evil.example');
+    await page.goto(untrustedLink.toString());
+    await expect(page).toHaveURL('http://127.0.0.1:3117/verification?status=success');
     await expect(page.getByText('Verification complete.')).toBeVisible();
     await expect(page.context().cookies()).resolves.not.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'better-auth.session_token' })]));
     await page.getByRole('link', { name: 'Sign in' }).click();
@@ -41,6 +47,26 @@ test('registration, verification, sign-in and server-side sign-out', async ({ pa
     await page.goto('/');
     await expect(page).toHaveURL(/\/sign-in/);
     expect((await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [email])).rows[0].count).toBe(0);
+    await page.context().clearCookies();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await page.getByLabel('Email', { exact: true }).fill(email);
+      await page.getByLabel('Password').fill('incorrect passphrase');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await expect.poll(async () => (await pool.query("select cardinality(attempts) as count from auth_identifier_rate_limit where operation='sign-in' and identifier_hash=$1", [createHash('sha256').update(email).digest('hex')])).rows[0].count).toBe(3 + attempt);
+      await expect(page.getByRole('status')).toContainText('Unable to sign in');
+    }
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill(password);
+    const blocked = page.waitForResponse(response => response.request().method() === 'POST' && !!response.request().headers()['next-action']);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await blocked;
+    await expect(page.getByRole('status')).toContainText('Unable to sign in');
+    expect((await pool.query('select count(*)::int as count from session s join "user" u on u.id=s.user_id where u.email=$1', [email])).rows[0].count).toBe(0);
+    await pool.query("update auth_identifier_rate_limit set attempts = ARRAY[now() - interval '16 minutes'] where operation='sign-in' and identifier_hash=$1", [createHash('sha256').update(email).digest('hex')]);
+    await page.getByLabel('Email', { exact: true }).fill(email);
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   } finally {
     await pool.query('delete from "user" where email = $1', [email]);
     await pool.query('delete from auth_identifier_rate_limit where identifier_hash = $1', [createHash('sha256').update(email).digest('hex')]);

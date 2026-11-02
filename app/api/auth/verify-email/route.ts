@@ -1,5 +1,6 @@
 import { getDatabase } from '../../../../db';
 import { createLocalAuth } from '../../../../lib/auth';
+import { verificationSucceeded } from '../../../../lib/verification-response';
 
 export async function GET(request: Request) {
   const origin = new URL(process.env.BETTER_AUTH_URL!).origin;
@@ -9,8 +10,10 @@ export async function GET(request: Request) {
     if (!token || token.length > 8192) throw new Error('Invalid token');
     const endpoint = new URL('/api/auth/verify-email', origin);
     endpoint.searchParams.set('token', token);
+    const callback = new URL('/verification?status=success', origin).toString();
+    endpoint.searchParams.set('callbackURL', callback);
     const response = await createLocalAuth(await getDatabase()).handler(new Request(endpoint));
-    destination.searchParams.set('status', response.ok ? 'success' : 'invalid');
+    destination.searchParams.set('status', verificationSucceeded(response, callback) ? 'success' : 'invalid');
   } catch {
     destination.searchParams.set('status', 'invalid');
   }
