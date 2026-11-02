@@ -25,6 +25,8 @@ pnpm dev
 
 Open http://127.0.0.1:3000, add a phrase, and refresh to see it retained. Start learning after configuring Jev. App startup never runs migrations; run `pnpm db:migrate` after updates too. For local production mode, run `pnpm build` and `pnpm start`.
 
+Compose also starts a local Mailpit inbox at http://127.0.0.1:8025, with SMTP on 127.0.0.1:1025. Authentication and email delivery are not implemented yet; this inbox does not protect the dictionary. Anyone with access to the shared inbox can read its messages. Do not expose either port through a network proxy.
+
 ### Storage and recovery
 
 `docker compose stop` stops PostgreSQL without deleting its volume. Recreating the container preserves that volume. **Deleting the personal PostgreSQL volume deletes the dictionary**; do not run `docker compose down -v` unless you intend to delete it. Persistent storage is not a backup; backup and restore are not provided.
