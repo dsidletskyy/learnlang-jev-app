@@ -98,3 +98,37 @@ test('Next development HMR websocket does not block database drain', async () =>
     await close(upstream);
   }
 });
+
+test('drain waits for stalled verification resend work before permitting reset', async () => {
+  const { resendVerification } = await import('../../lib/verification-resend.ts');
+  for (const phase of ['limit', 'send']) {
+    let release, started;
+    const gate = new Promise(resolve => { release = resolve; });
+    const active = new Promise(resolve => { started = resolve; });
+    let sideEffects = 0;
+    const upstream = http.createServer(async (_request, response) => {
+      const run = async current => { if (phase === current) { started(); await gate; } sideEffects++; return true; };
+      response.end(await resendVerification({ limit: () => run('limit'), send: () => run('send'), log: () => {} }, 10));
+    });
+    const upstreamPort = await listen(upstream);
+    const proxy = await startRequestProxy({ upstreamPort, port: 0, controlPort: 0, drainTimeout: 1000 });
+    try {
+      const request = fetch(`http://127.0.0.1:${proxy.port}/`);
+      await active;
+      let drained = false;
+      const drain = fetch(`http://127.0.0.1:${proxy.controlPort}/drain`, { method: 'POST' }).then(result => { drained = true; return result; });
+      await new Promise(resolve => setTimeout(resolve, 40));
+      assert.equal(drained, false);
+      release();
+      assert.equal((await request).status, 200);
+      assert.equal((await drain).status, 200);
+      assert.equal(sideEffects, 2);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      assert.equal(sideEffects, 2);
+    } finally {
+      release();
+      await proxy.close();
+      await close(upstream);
+    }
+  }
+});

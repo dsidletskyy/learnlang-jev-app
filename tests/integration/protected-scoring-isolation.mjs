@@ -13,6 +13,7 @@ registerHooks({ resolve(specifier, context, next) {
   if (specifier === './schema' && context.parentURL?.endsWith('/db/dictionary-owner-access.ts')) return next('./schema.ts', context);
   if (specifier === '../db/schema' && context.parentURL?.endsWith('/lib/auth.ts')) return next('../db/schema.ts', context);
   if (specifier === './session-cookie' && context.parentURL?.endsWith('/lib/auth.ts')) return next('./session-cookie.ts', context);
+  if (['./auth-configuration', './verification-mail'].includes(specifier) && context.parentURL?.endsWith('/lib/auth.ts')) return next(`${specifier}.ts`, context);
   return next(specifier, context);
 } });
 const { createAuth, validatedSession } = await import('../../lib/auth.ts');

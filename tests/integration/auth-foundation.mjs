@@ -10,6 +10,8 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 registerHooks({ resolve(specifier, context, next) {
   if (context.parentURL?.endsWith('/lib/auth.ts') && specifier === '../db/schema') return next('../db/schema.ts', context);
   if (context.parentURL?.endsWith('/lib/auth.ts') && specifier === './session-cookie') return next('./session-cookie.ts', context);
+  if (context.parentURL?.endsWith('/lib/auth.ts') && specifier === './auth-configuration') return next('./auth-configuration.ts', context);
+  if (context.parentURL?.endsWith('/lib/auth.ts') && specifier === './verification-mail') return next('./verification-mail.ts', context);
   return next(specifier, context);
 } });
 const { createAuth, createLocalAuth, validatedSession } = await import('../../lib/auth.ts');

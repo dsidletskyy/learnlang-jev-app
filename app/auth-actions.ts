@@ -1,12 +1,12 @@
 'use server';
 
 import { cookies, headers } from 'next/headers';
-import { after } from 'next/server';
 import { sendPasswordRecoveryMail } from '../lib/password-recovery-mail';
 import { completePasswordRecovery, requestPasswordRecovery, withIdentifierLock } from '../lib/password-recovery';
 import { recoveryAcknowledgment, validateResetPassword } from '../lib/password-recovery-policy';
 import { eq } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { PoolClient } from 'pg';
 import { session } from '../db/schema';
 import { redirect } from 'next/navigation';
 import { getDatabase, getPool } from '../db';
@@ -17,6 +17,7 @@ import { register, signIn } from '../lib/auth-entry-policy';
 import { revokeCurrentSession } from '../lib/sign-out';
 import { sessionCookieOptions } from '../lib/session-cookie';
 import { resendVerification } from '../lib/verification-resend';
+import { authOrigin, authSmtpPort } from '../lib/auth-configuration';
 
 const genericSignIn = 'Unable to sign in. Check your details and verification, then try again.';
 const registrationAcknowledgment = 'If registration can be completed, a verification link will be sent to the local inbox.';
@@ -97,12 +98,30 @@ export async function signOutAllSessionsAction(): Promise<string> {
 
 export async function resendVerificationAction(_state: string, form: FormData): Promise<string> {
   const email = String(form.get('email') ?? '');
-  return resendVerification({
-    limit: () => consumeIdentifierAttempt(getPool(), 'verification-resend', email),
-    send: async () => (await providerRequest('send-verification-email', { email })).ok,
-    log: message => console.error(message),
-    keepAlive: work => after(() => work),
-  });
+  const connection: { client?: PoolClient } = {};
+  let broken = true;
+  try {
+    return await resendVerification({
+      limit: async () => {
+        const client = connection.client = await getPool().connect();
+        await client.query("SET lock_timeout = '200ms'");
+        await client.query("SET statement_timeout = '200ms'");
+        return consumeIdentifierAttempt(client, 'verification-resend', email);
+      },
+      send: async () => (await providerRequest('send-verification-email', { email }, undefined, drizzle(connection.client!))).ok,
+      log: message => console.error(message),
+    });
+  } finally {
+    if (connection.client) {
+      const client = connection.client;
+      try {
+        await client.query('RESET lock_timeout');
+        await client.query('RESET statement_timeout');
+        broken = false;
+      } catch { /* Discard connections whose settings could not be restored. */ }
+      client.release(broken);
+    }
+  }
 }
 
 export async function requestRecoveryAction(_state: string, form: FormData): Promise<string> {
@@ -113,10 +132,8 @@ export async function requestRecoveryAction(_state: string, form: FormData): Pro
     try {
       if (await consumeRecoveryAttempt(client, email)) {
         const baseURL = process.env.BETTER_AUTH_URL!;
-        const origin = new URL(baseURL);
-        if (!['http:', 'https:'].includes(origin.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname) || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Invalid auth origin');
-        const port = Number(process.env.AUTH_SMTP_PORT ?? '1025');
-        if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMTP port');
+        const origin = authOrigin(baseURL);
+        const port = authSmtpPort(process.env.AUTH_SMTP_PORT);
         await requestPasswordRecovery(client, email, origin.origin, async (recipient, url) => {
           await sendPasswordRecoveryMail(port, recipient, url);
         });
