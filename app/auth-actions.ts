@@ -1,7 +1,7 @@
 'use server';
 
 import { cookies, headers } from 'next/headers';
-import { createTransport } from 'nodemailer';
+import { sendPasswordRecoveryMail } from '../lib/password-recovery-mail';
 import { completePasswordRecovery, requestPasswordRecovery, withIdentifierLock } from '../lib/password-recovery';
 import { recoveryAcknowledgment, validateResetPassword } from '../lib/password-recovery-policy';
 import { eq } from 'drizzle-orm';
@@ -114,9 +114,8 @@ export async function requestRecoveryAction(_state: string, form: FormData): Pro
       if (!['http:', 'https:'].includes(origin.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname) || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Invalid auth origin');
       const port = Number(process.env.AUTH_SMTP_PORT ?? '1025');
       if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMTP port');
-      const transport = createTransport({ host: '127.0.0.1', port, secure: false, connectionTimeout: 3000, greetingTimeout: 3000, socketTimeout: 3000 });
       await requestPasswordRecovery(getPool(), email, origin.origin, async (recipient, url) => {
-        await transport.sendMail({ from: 'Language Learning <auth@localhost>', to: recipient, subject: 'Reset your password', text: `Open this link to reset your password:\n\n${url}\n\nThis link expires in one hour.` });
+        await sendPasswordRecoveryMail(port, recipient, url);
       });
     }
   });

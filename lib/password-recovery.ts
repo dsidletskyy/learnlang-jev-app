@@ -21,16 +21,41 @@ export async function withIdentifierLock<T>(pool: Pool, email: string, run: (cli
 
 export async function requestPasswordRecovery(pool: Pool, email: string, baseURL: string, send: (email: string, url: string) => Promise<void>) {
   const token = randomBytes(32).toString('base64url');
-  await withIdentifierLock(pool, email, async client => {
-    const user = await client.query('SELECT id, email FROM "user" WHERE email = $1', [email.toLowerCase()]);
-    if (!user.rowCount) return;
-    await client.query(`INSERT INTO password_recovery (user_id, token_hash, expires_at) VALUES ($1, $2, clock_timestamp() + interval '1 hour')
-      ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at`, [user.rows[0].id, digest(token)]);
-    const recipient = user.rows[0].email as string;
-    const url = new URL('/reset-password', baseURL);
-    url.searchParams.set('token', token);
-    try { await send(recipient, url.toString()); } catch { console.error('Password recovery email delivery failed'); }
-  });
+  const client = await pool.connect();
+  let locked = false;
+  let broken = false;
+  try {
+    // Delivery has its own session lock: issuance commits before sending, while
+    // reset and sign-in use the separate transaction-scoped identifier lock.
+    await client.query('SELECT pg_advisory_lock(hashtextextended($1, 1))', [email.toLowerCase()]);
+    locked = true;
+    let recipient: string | undefined;
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [email.toLowerCase()]);
+      const user = await client.query('SELECT id, email FROM "user" WHERE email = $1', [email.toLowerCase()]);
+      if (user.rowCount) {
+        await client.query(`INSERT INTO password_recovery (user_id, token_hash, expires_at) VALUES ($1, $2, clock_timestamp() + interval '1 hour')
+          ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at`, [user.rows[0].id, digest(token)]);
+        recipient = user.rows[0].email as string;
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch { broken = true; }
+      throw error;
+    }
+    if (recipient) {
+      const url = new URL('/reset-password', baseURL);
+      url.searchParams.set('token', token);
+      try { await send(recipient, url.toString()); } catch { console.error('Password recovery email delivery failed'); }
+    }
+  } finally {
+    if (locked) {
+      try { await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 1))', [email.toLowerCase()]); }
+      catch { broken = true; }
+    }
+    client.release(broken);
+  }
 }
 
 export async function completePasswordRecovery(pool: Pool, token: string, password: string): Promise<boolean> {

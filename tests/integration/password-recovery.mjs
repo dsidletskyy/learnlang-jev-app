@@ -23,6 +23,31 @@ test('recovery supersedes, expires, rolls back failures, revokes sessions and pr
     const links = [];
     const request = (send = async (_, url) => links.push(url)) => requestPasswordRecovery(pool, 'Person@example.com', 'http://localhost:3000', send);
     const token = () => new URL(links.at(-1)).searchParams.get('token');
+    let visibleDuringDelivery;
+    await request(async (_, url) => {
+      const current = new URL(url).searchParams.get('token');
+      visibleDuringDelivery = (await pool.query("select 1 from password_recovery where token_hash = encode(sha256($1::bytea), 'hex')", [current])).rowCount;
+    });
+    assert.equal(visibleDuringDelivery, 1, 'token must be committed before delivery');
+    await pool.query(`create function fail_issuance_commit() returns trigger language plpgsql as $$ begin raise exception 'commit failure'; end $$;
+      create constraint trigger fail_issuance after insert or update on password_recovery deferrable initially deferred for each row execute function fail_issuance_commit()`);
+    let deliveredAfterFailure = false;
+    await assert.rejects(request(async () => { deliveredAfterFailure = true; }));
+    assert.equal(deliveredAfterFailure, false, 'failed commit must not send a link');
+    await pool.query('drop trigger fail_issuance on password_recovery');
+    let releaseDelivery, reportLink;
+    const deliveryEntered = new Promise(resolve => { reportLink = resolve; });
+    const holdDelivery = new Promise(resolve => { releaseDelivery = resolve; });
+    const inFlight = request(async (_, url) => { reportLink(url); await holdDelivery; });
+    const deliveredLink = await deliveryEntered;
+    try {
+      assert.equal(await completePasswordRecovery(pool, new URL(deliveredLink).searchParams.get('token'), 'a new unusual passphrase'), true);
+    } finally {
+      releaseDelivery();
+      await inFlight;
+    }
+    await pool.query("update account set password = 'old'");
+    await pool.query("insert into session (id, user_id, token, expires_at) values ('s', 'u', 'token', now() + interval '1 day')");
     await request(); const first = token();
     await request(); const second = token();
     assert.equal(await completePasswordRecovery(pool, first, 'a new unusual passphrase'), false);
@@ -56,7 +81,7 @@ test('recovery supersedes, expires, rolls back failures, revokes sessions and pr
     const deadline = Date.now() + 5000;
     let blocked = false;
     while (Date.now() < deadline) {
-      blocked = (await pool.query("select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%pg_advisory_xact_lock(hashtextextended%'")).rowCount > 0;
+      blocked = (await pool.query("select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%pg_advisory_lock(hashtextextended%'")).rowCount > 0;
       if (blocked) break;
       await new Promise(resolve => setTimeout(resolve, 10));
     }
