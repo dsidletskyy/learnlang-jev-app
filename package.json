@@ -15,7 +15,7 @@
     "test": "python3 scripts/test-lock.py sh scripts/test-browser.sh",
     "check": "python3 scripts/test-lock.py sh scripts/check.sh",
     "db:migrate": "node --env-file-if-exists=.env ./node_modules/drizzle-kit/bin.cjs migrate",
-    "test:database": "python3 scripts/test-lock.py sh -c 'node tests/integration/dictionary-ownership-migration.mjs && node tests/integration/better-auth-persistence.mjs && node tests/integration/database.mjs'",
+    "test:database": "python3 scripts/test-lock.py sh -c 'node tests/integration/dictionary-ownership-migration.mjs && node --conditions=react-server --test tests/integration/dictionary-owner-access.mjs && node tests/integration/better-auth-persistence.mjs && node tests/integration/database.mjs'",
     "test:isolation": "node --test tests/isolation/*.test.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs"
   },
