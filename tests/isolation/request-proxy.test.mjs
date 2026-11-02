@@ -108,7 +108,7 @@ test('drain waits for stalled verification resend work before permitting reset',
     let sideEffects = 0;
     const upstream = http.createServer(async (_request, response) => {
       const run = async current => { if (phase === current) { started(); await gate; } sideEffects++; return true; };
-      response.end(await resendVerification({ limit: () => run('limit'), send: () => run('send'), log: () => {} }, 10));
+      response.end(await resendVerification({ acquire: async () => ({ query: async () => {}, release: () => {} }), limit: () => run('limit'), send: () => run('send'), log: () => {} }, 10));
     });
     const upstreamPort = await listen(upstream);
     const proxy = await startRequestProxy({ upstreamPort, port: 0, controlPort: 0, drainTimeout: 1000 });

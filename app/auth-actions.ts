@@ -6,7 +6,6 @@ import { completePasswordRecovery, requestPasswordRecovery, withIdentifierLock }
 import { recoveryAcknowledgment, validateResetPassword } from '../lib/password-recovery-policy';
 import { eq } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { PoolClient } from 'pg';
 import { session } from '../db/schema';
 import { redirect } from 'next/navigation';
 import { getDatabase, getPool } from '../db';
@@ -98,30 +97,12 @@ export async function signOutAllSessionsAction(): Promise<string> {
 
 export async function resendVerificationAction(_state: string, form: FormData): Promise<string> {
   const email = String(form.get('email') ?? '');
-  const connection: { client?: PoolClient } = {};
-  let broken = true;
-  try {
-    return await resendVerification({
-      limit: async () => {
-        const client = connection.client = await getPool().connect();
-        await client.query("SET lock_timeout = '200ms'");
-        await client.query("SET statement_timeout = '200ms'");
-        return consumeIdentifierAttempt(client, 'verification-resend', email);
-      },
-      send: async () => (await providerRequest('send-verification-email', { email }, undefined, drizzle(connection.client!))).ok,
-      log: message => console.error(message),
-    });
-  } finally {
-    if (connection.client) {
-      const client = connection.client;
-      try {
-        await client.query('RESET lock_timeout');
-        await client.query('RESET statement_timeout');
-        broken = false;
-      } catch { /* Discard connections whose settings could not be restored. */ }
-      client.release(broken);
-    }
-  }
+  return resendVerification({
+    acquire: () => getPool().connect(),
+    limit: client => consumeIdentifierAttempt(client, 'verification-resend', email),
+    send: async client => (await providerRequest('send-verification-email', { email }, undefined, drizzle(client))).ok,
+    log: message => console.error(message),
+  });
 }
 
 export async function requestRecoveryAction(_state: string, form: FormData): Promise<string> {
