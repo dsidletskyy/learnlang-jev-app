@@ -3,7 +3,7 @@
 import { cookies, headers } from 'next/headers';
 import { createTransport } from 'nodemailer';
 import { completePasswordRecovery, requestPasswordRecovery, withIdentifierLock } from '../lib/password-recovery';
-import { validateResetPassword } from '../lib/password-recovery-policy';
+import { recoveryAcknowledgment, validateResetPassword } from '../lib/password-recovery-policy';
 import { eq } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { session } from '../db/schema';
@@ -107,7 +107,7 @@ export async function resendVerificationAction(_state: string, form: FormData): 
 
 export async function requestRecoveryAction(_state: string, form: FormData): Promise<string> {
   const email = String(form.get('email') ?? '');
-  try {
+  return recoveryAcknowledgment(async () => {
     if (await consumeIdentifierAttempt(getPool(), 'reset', email)) {
       const baseURL = process.env.BETTER_AUTH_URL!;
       const origin = new URL(baseURL);
@@ -119,8 +119,7 @@ export async function requestRecoveryAction(_state: string, form: FormData): Pro
         await transport.sendMail({ from: 'Language Learning <auth@localhost>', to: recipient, subject: 'Reset your password', text: `Open this link to reset your password:\n\n${url}\n\nThis link expires in one hour.` });
       });
     }
-  } catch { console.error('Password recovery request failed'); }
-  return 'If recovery is available, a link will be sent to the local inbox.';
+  });
 }
 
 export async function resetPasswordAction(_state: string, form: FormData): Promise<string> {

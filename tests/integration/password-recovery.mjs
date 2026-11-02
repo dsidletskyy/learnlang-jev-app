@@ -46,6 +46,27 @@ test('recovery supersedes, expires, rolls back failures, revokes sessions and pr
     assert.equal(await completePasswordRecovery(pool, fourth, 'another unusual passphrase'), false);
     await request(); assert.equal(await completePasswordRecovery(pool, token(), 'another unusual passphrase'), true);
     await pool.query('update "user" set email_verified = true');
+    let releaseFirst, firstStarted;
+    const entered = new Promise(resolve => { firstStarted = resolve; });
+    const release = new Promise(resolve => { releaseFirst = resolve; });
+    const ordered = [];
+    const firstDelivery = request(async (_, url) => { firstStarted(); await release; ordered.push(url); });
+    await entered;
+    const secondDelivery = request(async (_, url) => ordered.push(url));
+    const deadline = Date.now() + 5000;
+    let blocked = false;
+    while (Date.now() < deadline) {
+      blocked = (await pool.query("select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%pg_advisory_xact_lock(hashtextextended%'")).rowCount > 0;
+      if (blocked) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(blocked, true);
+    assert.equal(ordered.length, 0);
+    releaseFirst();
+    await Promise.all([firstDelivery, secondDelivery]);
+    assert.equal(ordered.length, 2);
+    assert.equal(await completePasswordRecovery(pool, new URL(ordered[0]).searchParams.get('token'), 'yet another uncommon passphrase'), false);
+    assert.equal(await completePasswordRecovery(pool, new URL(ordered[1]).searchParams.get('token'), 'yet another uncommon passphrase'), true);
     const concurrent = [];
     await Promise.all(Array.from({ length: 6 }, () => request(async (_, url) => concurrent.push(new URL(url).searchParams.get('token')))));
     const outcomes = await Promise.all(concurrent.map(link => completePasswordRecovery(pool, link, 'yet another uncommon passphrase')));

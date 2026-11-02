@@ -21,18 +21,16 @@ export async function withIdentifierLock<T>(pool: Pool, email: string, run: (cli
 
 export async function requestPasswordRecovery(pool: Pool, email: string, baseURL: string, send: (email: string, url: string) => Promise<void>) {
   const token = randomBytes(32).toString('base64url');
-  const recipient = await withIdentifierLock(pool, email, async client => {
+  await withIdentifierLock(pool, email, async client => {
     const user = await client.query('SELECT id, email FROM "user" WHERE email = $1', [email.toLowerCase()]);
-    if (!user.rowCount) return null;
+    if (!user.rowCount) return;
     await client.query(`INSERT INTO password_recovery (user_id, token_hash, expires_at) VALUES ($1, $2, clock_timestamp() + interval '1 hour')
       ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at`, [user.rows[0].id, digest(token)]);
-    return user.rows[0].email as string;
-  });
-  if (recipient) {
+    const recipient = user.rows[0].email as string;
     const url = new URL('/reset-password', baseURL);
     url.searchParams.set('token', token);
     try { await send(recipient, url.toString()); } catch { console.error('Password recovery email delivery failed'); }
-  }
+  });
 }
 
 export async function completePasswordRecovery(pool: Pool, token: string, password: string): Promise<boolean> {
