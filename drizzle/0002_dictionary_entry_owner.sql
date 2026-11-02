@@ -1,0 +1,1 @@
+ALTER TABLE "dictionary_entries" ADD COLUMN "owner_id" text;

@@ -15,6 +15,13 @@
       "when": 1793296288661,
       "tag": "0001_dictionary_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793628393044,
+      "tag": "0002_dictionary_entry_owner",
+      "breakpoints": true
     }
   ]
 }

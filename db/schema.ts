@@ -9,5 +9,6 @@ export const dictionaryEntries = pgTable('dictionary_entries', {
   original: text('original').notNull(),
   language: text('language').notNull(),
   translation: text('translation').notNull(),
+  ownerId: text('owner_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
