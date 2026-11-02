@@ -7,7 +7,7 @@
 **Status:** ready-for-agent
 
 - [ ] Pin and validate compatible Better Auth, Next.js and Drizzle versions; explicitly migrate provider persistence and nullable entry ownership without automatically assigning legacy entries.
-- [ ] Registration and initial verification use a loopback-only local inbox; verification expires after 24 hours, is single-use, does not create a session, and delivery failure leaves the account unverified. Show inbox access and shared-inbox limitations.
+- [ ] Registration and initial verification use a loopback-only local inbox; verification expires after 24 hours, does not create a session, and delivery failure leaves the account unverified. Reusing a valid link after verification may report success without creating a session or triggering further side effects. Show inbox access and shared-inbox limitations.
 - [ ] Verified users can sign in and sign out of their current server-side session; unverified users cannot sign in. Enforce seven-day idle and 30-day absolute session expiry, specified cookie attributes, CSRF and origin protections.
 - [ ] Enforce the specified password policy and versioned local blocklist, including fail-closed creation when unavailable while existing sign-in remains possible. Apply generic responses and specified per-identifier registration and sign-in limits.
 - [ ] New entries derive ownership from the session; all dictionary and learning reads and writes enforce ownership. Other-account, unowned and nonexistent entries are indistinguishable. Existing unowned entries stay hidden while new accounts work normally.
