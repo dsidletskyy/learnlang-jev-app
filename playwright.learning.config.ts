@@ -10,7 +10,7 @@ export default defineConfig({
     {
       command: 'node tests/isolation/reset.mjs --migrate && pnpm exec next dev --webpack --hostname 127.0.0.1 --port 3102',
       url: 'http://127.0.0.1:3102', reuseExistingServer: false,
-      env: { DATABASE_URL: 'postgresql://language_test:language_test_password@127.0.0.1:55432/language_test', JEV_TEST_URL: 'http://127.0.0.1:3101', TYPESAFE_API_KEY: 'test-only-key', NODE_OPTIONS: '--require=./tests/isolation/network-guard.cjs' },
+      env: { DATABASE_URL: 'postgresql://language_test:language_test_password@127.0.0.1:55432/language_test', BETTER_AUTH_URL: 'http://127.0.0.1:3100', BETTER_AUTH_SECRET: 'browser-test-secret-32-characters-long', JEV_TEST_URL: 'http://127.0.0.1:3101', TYPESAFE_API_KEY: 'test-only-key', NODE_OPTIONS: '--require=./tests/isolation/network-guard.cjs' },
     },
     { command: 'node tests/isolation/request-proxy.mjs', url: 'http://127.0.0.1:3100', reuseExistingServer: false },
   ],
