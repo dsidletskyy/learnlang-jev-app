@@ -90,7 +90,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     setLearningError('');
     try {
       const result = await loadSessionEntries(selectedLanguage);
-      if (!result.ok) { const message = 'Could not load entries. Check the database and try again.'; setLearningError(message); showErrorToast(message); return; }
+      if (!result.ok) { setLearningError(result.error); showErrorToast(result.error); return; }
       if (!result.entries.length) { const message = 'No entries remain for this language. Choose another language or add a phrase.'; setLearningError(message); showErrorToast(message); return; }
       const shuffled = [...result.entries];
       for (let i = shuffled.length - 1; i > 0; i--) {
@@ -115,7 +115,7 @@ export default function Dictionary({ entries, jevConfigured }: { entries: Entry[
     const generation = sessionGeneration.current;
     evaluationPending.current = true; setEvaluating(true);
     try {
-      const result = await evaluateMeaningMatch({ original: entry.original, answer: trimmed, language: entry.language });
+      const result = await evaluateMeaningMatch({ id: entry.id, answer: trimmed });
       if (generation !== sessionGeneration.current) return;
       if (result.ok) setFeedback(result.score);
       else { setProviderError(result.error); showErrorToast(result.error); }
