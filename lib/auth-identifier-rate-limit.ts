@@ -33,17 +33,22 @@ export async function consumeIdentifierAttempt(pool: Pool | PoolClient, operatio
 }
 
 // Recovery must not acknowledge a request while its rate-limit write is still blocked.
-export async function consumeRecoveryAttempt(pool: Pool, identifier: string): Promise<boolean> {
-  const client = await pool.connect();
+export async function consumeRecoveryAttempt(pool: Pool | PoolClient, identifier: string): Promise<boolean> {
+  const owned = !('release' in pool);
+  const client = owned ? await pool.connect() : pool;
   let broken = false;
   try {
     await client.query('BEGIN');
-    await client.query("SET LOCAL lock_timeout = '3s'");
+    await client.query("SET LOCAL lock_timeout = '200ms'");
+    await client.query("SET LOCAL statement_timeout = '200ms'");
     const allowed = await consumeIdentifierAttempt(client, 'reset', identifier);
     await client.query('COMMIT');
     return allowed;
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch { broken = true; }
     throw error;
-  } finally { client.release(broken); }
+  } finally {
+    if (owned) client.release(broken);
+    else if (broken) throw new Error('Recovery cleanup failed');
+  }
 }

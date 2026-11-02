@@ -108,16 +108,21 @@ export async function resendVerificationAction(_state: string, form: FormData): 
 export async function requestRecoveryAction(_state: string, form: FormData): Promise<string> {
   const email = String(form.get('email') ?? '');
   return recoveryAcknowledgment(async () => {
-    if (await consumeRecoveryAttempt(getPool(), email)) {
-      const baseURL = process.env.BETTER_AUTH_URL!;
-      const origin = new URL(baseURL);
-      if (!['http:', 'https:'].includes(origin.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname) || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Invalid auth origin');
-      const port = Number(process.env.AUTH_SMTP_PORT ?? '1025');
-      if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMTP port');
-      await requestPasswordRecovery(getPool(), email, origin.origin, async (recipient, url) => {
-        await sendPasswordRecoveryMail(port, recipient, url);
-      });
-    }
+    const client = await getPool().connect();
+    let broken = true;
+    try {
+      if (await consumeRecoveryAttempt(client, email)) {
+        const baseURL = process.env.BETTER_AUTH_URL!;
+        const origin = new URL(baseURL);
+        if (!['http:', 'https:'].includes(origin.protocol) || !['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname) || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Invalid auth origin');
+        const port = Number(process.env.AUTH_SMTP_PORT ?? '1025');
+        if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMTP port');
+        await requestPasswordRecovery(client, email, origin.origin, async (recipient, url) => {
+          await sendPasswordRecoveryMail(port, recipient, url);
+        });
+      }
+      broken = false;
+    } finally { client.release(broken); }
   });
 }
 

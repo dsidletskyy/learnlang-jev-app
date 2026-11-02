@@ -20,17 +20,23 @@ export async function withIdentifierLock<T>(pool: Pool, email: string, run: (cli
   } finally { client.release(broken); }
 }
 
-export async function requestPasswordRecovery(pool: Pool, email: string, baseURL: string, send: (email: string, url: string) => Promise<void>) {
+export async function requestPasswordRecovery(pool: Pool | PoolClient, email: string, baseURL: string, send: (email: string, url: string) => Promise<void>) {
   const token = randomBytes(32).toString('base64url');
-  const client = await pool.connect();
+  const owned = !('release' in pool);
+  const client = owned ? await pool.connect() : pool;
   let locked = false;
   let broken = false;
   try {
+    // The action shares one pool acquisition: 3s pool + 3s delivery lock +
+    // 200ms each for rate limit, identifier lock and upsert + 2s SMTP = 8.6s.
     await client.query("SET lock_timeout = '3s'");
+    await client.query("SET statement_timeout = '3s'");
     // Delivery has its own session lock: issuance commits before sending, while
     // reset and sign-in use the separate transaction-scoped identifier lock.
     await client.query('SELECT pg_advisory_lock(hashtextextended($1, 1))', [email.toLowerCase()]);
     locked = true;
+    await client.query("SET lock_timeout = '200ms'");
+    await client.query("SET statement_timeout = '200ms'");
     let recipient: string | undefined;
     try {
       await client.query('BEGIN');
@@ -57,7 +63,9 @@ export async function requestPasswordRecovery(pool: Pool, email: string, baseURL
       catch { broken = true; }
     }
     try { await client.query('RESET lock_timeout'); } catch { broken = true; }
-    client.release(broken);
+    try { await client.query('RESET statement_timeout'); } catch { broken = true; }
+    if (owned) client.release(broken);
+    else if (broken) throw new Error('Recovery cleanup failed');
   }
 }
 
